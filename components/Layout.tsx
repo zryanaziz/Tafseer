@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`flex flex-col h-screen w-full overflow-hidden relative select-none`}>
-      {/* Top App Bar - MD3 Center Aligned Style */}
+      {/* Top App Bar */}
       {!hideHeader && (
         <header className={`${getHeaderStyle()} pt-safe px-4 py-3 flex items-center justify-between z-20 shrink-0`}>
           <div className="flex items-center gap-3">
@@ -58,7 +58,10 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
             )}
           </div>
-          <h1 className="text-xl font-medium tracking-tight truncate flex-1 text-center">{title}</h1>
+          {/* Only show title on home, detail uses a custom switcher */}
+          <h1 className="text-xl font-medium tracking-tight truncate flex-1 text-center">
+            {activeScreen === AppScreen.SURAH_DETAIL ? "خوێندنەوە" : title}
+          </h1>
           <div className="flex items-center gap-1">
             <button onClick={() => onNavigate(AppScreen.SEARCH)} className="p-2 rounded-full active:bg-black/10 transition-colors">
               <Search size={24} />
@@ -67,12 +70,12 @@ const Layout: React.FC<LayoutProps> = ({
         </header>
       )}
 
-      {/* Main Content with Native Scrolling */}
+      {/* Main Content */}
       <main className={`flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth ${hideNav ? 'pb-safe' : 'pb-24'}`}>
         {children}
       </main>
 
-      {/* Navigation Bar - MD3 Style with active indicator pill */}
+      {/* Navigation Bar */}
       {!hideNav && (
         <nav className={`${getNavStyle()} flex justify-around items-center h-20 pb-safe absolute bottom-0 left-0 right-0 z-30 px-2`}>
           <NavItem 
