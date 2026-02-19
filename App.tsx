@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { getInterpretationStats, getLocalTafseer } from './services/localTafseerService';
-import { Surah, Verse, AppScreen, Bookmark, AppTheme, DisplayFocus } from './types';
-import { PlayCircle, PenTool, Loader2, Settings, Eye, BookOpen, LayoutTemplate, FileText, Maximize2 } from 'lucide-react';
+import { Surah, Verse, AppScreen, AppTheme, DisplayFocus } from './types';
+import { PlayCircle, PenTool, Loader2, Settings, Eye, BookOpen, LayoutTemplate, Maximize2, FileText } from 'lucide-react';
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
@@ -24,7 +24,7 @@ const App: React.FC = () => {
   const [focusMode, setFocusMode] = useState<DisplayFocus>(() => {
     return (localStorage.getItem('display_focus') as DisplayFocus) || DisplayFocus.BOTH;
   });
-  
+
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
   const [verses, setVerses] = useState<Verse[]>([]);
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
@@ -33,14 +33,12 @@ const App: React.FC = () => {
     const handleResize = () => {
       const landscape = window.innerWidth > window.innerHeight;
       setIsLandscape(landscape);
-      
       if (landscape && !document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
       } else if (!landscape && document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -67,9 +65,14 @@ const App: React.FC = () => {
     setSelectedSurah(surah);
     setLoading(true);
     setScreen(AppScreen.SURAH_DETAIL);
-    const verseData = await fetchSurahVerses(surah.id);
-    setVerses(verseData);
-    setLoading(false);
+    try {
+      const verseData = await fetchSurahVerses(surah.id);
+      setVerses(verseData);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNextVerse = async () => {
@@ -110,111 +113,86 @@ const App: React.FC = () => {
     }
   };
 
-  const getTitle = () => {
-    switch(screen) {
-      case AppScreen.HOME: return "تەفسیری قورئانی پیرۆز";
-      case AppScreen.SURAH_DETAIL: return selectedSurah?.name_arabic || "سوورەت";
-      default: return "تەفسیری قورئان";
-    }
-  };
-
   const renderHome = () => (
-    <div className={`py-2 ${isLandscape ? 'px-8' : ''}`}>
+    <div className={`page-enter py-4 ${isLandscape ? 'px-8' : ''}`}>
       {!isLandscape && (
-        <div className="mx-4 mt-4 mb-2">
-          <h2 className={`text-lg font-bold ${theme === AppTheme.DARK ? 'text-gray-100' : 'text-gray-800'}`}>بەرەوپێشچوونم</h2>
-          <div className={`mt-3 ${theme === AppTheme.DARK ? 'bg-gray-800' : theme === AppTheme.SEPIA ? 'bg-orange-900' : 'bg-emerald-800'} rounded-3xl p-6 text-white flex items-center justify-between shadow-xl relative overflow-hidden transition-all duration-500`}>
-            <div className="absolute -left-4 -bottom-4 opacity-10">
-              <PenTool size={120} />
+        <div className="mx-4 mb-6">
+          <div className={`${theme === AppTheme.DARK ? 'bg-[#3b4b41]' : 'bg-[#cce8d9]'} rounded-[32px] p-8 text-[#002114] flex flex-col relative overflow-hidden`}>
+            <div className="absolute left-0 bottom-0 opacity-10 translate-y-1/4 -translate-x-1/4">
+              <PlayCircle size={200} />
             </div>
-            <div className="relative z-10 text-right">
-              <p className="opacity-60 text-[10px] uppercase tracking-widest font-bold">ئایەتە تەفسیرکراوەکان</p>
-              <h3 className="text-4xl font-black mt-1">{stats} <span className="text-lg font-medium opacity-60">/ 6٢٣٦</span></h3>
-              <div className="mt-4 flex items-center gap-2">
-                <div className="w-32 h-1.5 bg-black/20 rounded-full">
-                  <div 
-                    className={`h-full ${theme === AppTheme.SEPIA ? 'bg-orange-400' : 'bg-emerald-400'} rounded-full transition-all duration-500`} 
-                    style={{ width: `${(stats / 6236) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-[10px] font-bold">
-                  {((stats / 6236) * 100).toFixed(1)}%
-                </span>
-              </div>
+            <p className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">ئاستی بەرەوپێشچوون</p>
+            <h3 className="text-5xl font-black mb-4">{stats} <span className="text-xl font-medium opacity-50">/ ٦٢٣٦</span></h3>
+            <div className="w-full h-3 bg-black/10 rounded-full mt-2">
+              <div 
+                className="h-full bg-[#006c4c] rounded-full transition-all duration-1000" 
+                style={{ width: `${Math.min(100, (stats / 6236) * 100)}%` }}
+              ></div>
             </div>
-            <PlayCircle size={44} className="opacity-80" />
           </div>
         </div>
       )}
       
-      <div className="mx-4 mt-6 mb-2 flex items-center justify-between">
-        <h2 className={`text-lg font-bold ${theme === AppTheme.DARK ? 'text-gray-100' : 'text-gray-800'}`}>فەهرەستی سوورەتەکان</h2>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setShowGlobalSettings(!showGlobalSettings)}
-            className={`p-2 rounded-xl flex items-center gap-2 ${theme === AppTheme.DARK ? 'bg-gray-800 text-gray-300' : 'bg-emerald-50 text-emerald-700'}`}
-          >
-            <Settings size={18} />
-            {!isLandscape && <span className="text-xs font-bold uppercase tracking-tighter">ڕێکخستنەکان</span>}
-          </button>
-        </div>
+      <div className="mx-6 mb-4 flex items-center justify-between">
+        <h2 className="text-2xl font-bold">سوورەتەکان</h2>
+        <button onClick={() => setShowGlobalSettings(!showGlobalSettings)} className="p-3 rounded-full bg-gray-100 active:bg-gray-200 transition-all">
+          <Settings size={24} />
+        </button>
       </div>
 
       {showGlobalSettings && (
-        <div className={`mx-4 mb-4 p-4 rounded-3xl animate-in slide-in-from-top-2 duration-300 ${theme === AppTheme.DARK ? 'bg-gray-800' : 'bg-white border border-gray-100 shadow-sm'}`}>
-          <div className={`space-y-4 ${isLandscape ? 'grid grid-cols-2 gap-4 space-y-0' : ''}`}>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">ڕەنگی بەرنامە</p>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: AppTheme.EMERALD, color: 'bg-emerald-600', label: 'سەوز' },
-                  { id: AppTheme.DARK, color: 'bg-gray-900', label: 'تاریک' },
-                  { id: AppTheme.SEPIA, color: 'bg-orange-100', label: 'دافێ' },
-                  { id: AppTheme.LIGHT, color: 'bg-white', label: 'ڕوون' }
-                ].map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${theme === t.id ? 'bg-emerald-500/10 ring-1 ring-emerald-500' : ''}`}
-                  >
-                    <div className={`w-8 h-8 rounded-full border border-gray-200 ${t.color}`}></div>
-                    <span className={`text-[9px] font-bold ${theme === AppTheme.DARK ? 'text-gray-400' : 'text-gray-600'}`}>{t.label}</span>
-                  </button>
-                ))}
-              </div>
+        <div className="mx-4 mb-6 p-6 rounded-[32px] bg-white border border-gray-100 shadow-sm space-y-6 animate-in slide-in-from-top-4 duration-300">
+          <div>
+            <p className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">ڕەنگی بەرنامە</p>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { id: AppTheme.EMERALD, color: 'bg-[#006c4c]', label: 'سەوز' },
+                { id: AppTheme.DARK, color: 'bg-[#191c1a]', label: 'تاریک' },
+                { id: AppTheme.SEPIA, color: 'bg-[#f5e8d9]', label: 'دافێ' },
+                { id: AppTheme.LIGHT, color: 'bg-white', label: 'ڕوون' }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-[24px] transition-all ${theme === t.id ? 'bg-[#cce8d9] ring-2 ring-[#006c4c]' : 'bg-gray-50'}`}
+                >
+                  <div className={`w-10 h-10 rounded-full border border-gray-200 ${t.color}`}></div>
+                  <span className="text-[10px] font-bold">{t.label}</span>
+                </button>
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">شێوازی پیشاندان</p>
-              <div className="flex gap-2">
-                {[
-                  { id: DisplayFocus.BOTH, label: 'هەردووکی', icon: <LayoutTemplate size={14} /> },
-                  { id: DisplayFocus.QURAN_ONLY, label: 'قورئان', icon: <Eye size={14} /> },
-                  { id: DisplayFocus.TAFSEER_ONLY, label: 'تەفسیر', icon: <BookOpen size={14} /> }
-                ].map(mode => (
-                  <button
-                    key={mode.id}
-                    onClick={() => setFocusMode(mode.id)}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                      focusMode === mode.id 
-                        ? 'bg-emerald-600 text-white shadow-lg' 
-                        : theme === AppTheme.DARK ? 'bg-gray-700 text-gray-300' : 'bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    {mode.icon} {mode.label}
-                  </button>
-                ))}
-              </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">شێوازی پیشاندان</p>
+            <div className="flex gap-2">
+              {[
+                { id: DisplayFocus.BOTH, label: 'هەردووکی', icon: <LayoutTemplate size={18} /> },
+                { id: DisplayFocus.QURAN_ONLY, label: 'قورئان', icon: <Eye size={18} /> },
+                { id: DisplayFocus.TAFSEER_ONLY, label: 'تەفسیر', icon: <BookOpen size={18} /> }
+              ].map(mode => (
+                <button
+                  key={mode.id}
+                  onClick={() => setFocusMode(mode.id)}
+                  className={`flex-1 py-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                    focusMode === mode.id 
+                      ? 'bg-[#006c4c] text-white shadow-lg' 
+                      : 'bg-gray-50 text-gray-600'
+                  }`}
+                >
+                  {mode.icon}
+                  <span>{mode.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {loading && surahs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-        </div>
+      {loading ? (
+        <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 text-[#006c4c] animate-spin" /></div>
       ) : (
-        <div className={`pb-4 ${isLandscape ? 'grid grid-cols-2 gap-2' : ''}`}>
+        <div className={`${isLandscape ? 'grid grid-cols-2 gap-4' : 'flex flex-col'}`}>
           {surahs.map(s => <SurahCard key={s.id} surah={s} theme={theme} onClick={handleSurahClick} />)}
         </div>
       )}
@@ -225,7 +203,7 @@ const App: React.FC = () => {
     <Layout 
       activeScreen={screen} 
       onNavigate={setScreen} 
-      title={getTitle()}
+      title={screen === AppScreen.HOME ? "تەفسیری قورئان" : selectedSurah?.name_arabic || "سوورەت"}
       showBack={screen === AppScreen.SURAH_DETAIL}
       onBack={() => setScreen(AppScreen.HOME)}
       theme={theme}
@@ -234,82 +212,53 @@ const App: React.FC = () => {
     >
       {screen === AppScreen.HOME && renderHome()}
       {screen === AppScreen.SURAH_DETAIL && (
-        <div className={`min-h-full divide-y transition-colors duration-500 ${theme === AppTheme.DARK ? 'bg-gray-900 divide-gray-800' : theme === AppTheme.SEPIA ? 'bg-orange-50 divide-orange-100' : 'bg-white divide-gray-100'}`}>
-          {isLandscape && (
-            <div className={`sticky top-0 z-20 p-2 flex items-center justify-between border-b ${theme === AppTheme.DARK ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
-               <button onClick={() => setScreen(AppScreen.HOME)} className="p-2 text-emerald-500 flex items-center gap-2 font-bold text-sm">
-                 <Maximize2 size={16} className="-rotate-45" /> گەڕانەوە بۆ سەرەتا
-               </button>
-               <h2 className="text-xs font-bold opacity-40 uppercase tracking-widest">{selectedSurah?.name_arabic}</h2>
-            </div>
-          )}
-          {loading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-            </div>
-          ) : (
-            <div className={isLandscape ? 'grid grid-cols-2 divide-x divide-x-reverse divide-gray-800/10' : ''}>
+        <div className={`page-enter min-h-full pb-20 ${theme === AppTheme.DARK ? 'bg-[#191c1a]' : theme === AppTheme.SEPIA ? 'bg-[#fdf3e7]' : 'bg-[#fbfdf9]'}`}>
+           {loading ? (
+            <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 text-[#006c4c] animate-spin" /></div>
+           ) : (
+            <div className={isLandscape ? 'grid grid-cols-2 gap-px bg-gray-200' : 'space-y-4'}>
               {verses.map(v => {
                 const localTafseer = getLocalTafseer(v.verse_key);
                 return (
-                  <div key={v.id} className="p-5 text-right">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
-                        ئایەتی {v.verse_key.split(':')[1]}
-                      </span>
+                  <div key={v.id} className={`p-6 ${theme === AppTheme.DARK ? 'bg-[#212622]' : 'bg-white'}`}>
+                    <div className="flex justify-between items-center mb-6">
+                      <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-xs">ئایەتی {v.verse_key.split(':')[1]}</span>
                       <button 
                         onClick={() => setSelectedVerse(v)}
-                        className={`p-2 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all ${theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : theme === AppTheme.SEPIA ? 'bg-orange-200 text-orange-900' : 'bg-emerald-100 text-emerald-700'}`}
+                        className="flex items-center gap-2 bg-[#006c4c] text-white px-5 py-2 rounded-full font-bold text-sm active:scale-90 transition-transform shadow-md"
                       >
-                        <PenTool size={16} />
-                        <span className="text-xs font-bold">{localTafseer ? 'کردنەوە' : 'نووسین'}</span>
+                        <PenTool size={16} /> {localTafseer ? 'بینین' : 'تەفسیر'}
                       </button>
                     </div>
-                    
-                    {focusMode !== DisplayFocus.TAFSEER_ONLY && (
-                      <p className={`arabic-text leading-loose text-right mb-4 ${isLandscape ? 'text-4xl' : 'text-3xl'} ${theme === AppTheme.DARK ? 'text-gray-100' : 'text-gray-900'}`}>
-                        {v.text_uthmani}
-                      </p>
-                    )}
 
-                    {focusMode === DisplayFocus.BOTH && (
+                    {(focusMode === DisplayFocus.BOTH || focusMode === DisplayFocus.QURAN_ONLY) && (
                       <>
-                        <p className={`text-sm italic mb-4 text-right opacity-60 ${theme === AppTheme.DARK ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {v.translations?.[0]?.text.replace(/<[^>]*>?/gm, '')}
+                        <p className={`arabic-text leading-[2.2] text-right mb-6 ${isLandscape ? 'text-4xl' : 'text-3xl'} ${theme === AppTheme.DARK ? 'text-[#e1e3df]' : 'text-gray-900'}`}>
+                          {v.text_uthmani}
                         </p>
-                        {localTafseer && (
-                          <div className={`p-4 rounded-2xl border-r-4 border-emerald-500 text-sm text-right ${theme === AppTheme.DARK ? 'bg-gray-800/50 text-gray-300' : 'bg-emerald-50/30 text-emerald-900'}`}>
-                             <p className="font-bold text-[10px] uppercase tracking-widest opacity-40 mb-1">تەفسیری من</p>
-                             <p className="line-clamp-3 leading-relaxed">{localTafseer.text}</p>
-                          </div>
-                        )}
+                        <p className="text-right text-gray-500 italic text-sm leading-relaxed mb-4">{v.translations?.[0]?.text.replace(/<[^>]*>?/gm, '')}</p>
                       </>
                     )}
 
-                    {focusMode === DisplayFocus.QURAN_ONLY && (
-                      <p className={`text-sm italic text-right opacity-60 ${theme === AppTheme.DARK ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {v.translations?.[0]?.text.replace(/<[^>]*>?/gm, '')}
-                      </p>
-                    )}
-
-                    {focusMode === DisplayFocus.TAFSEER_ONLY && (
-                      <div className={`p-4 rounded-2xl border-r-4 border-emerald-500 text-right ${theme === AppTheme.DARK ? 'bg-gray-800/50 text-gray-100' : 'bg-emerald-50 text-emerald-950'}`}>
-                        <div className="flex items-center gap-2 mb-2 opacity-40">
-                           <FileText size={12} />
-                           <p className="font-bold text-[10px] uppercase tracking-widest">تەفسیر</p>
+                    {(focusMode === DisplayFocus.BOTH || focusMode === DisplayFocus.TAFSEER_ONLY) && (
+                      localTafseer ? (
+                        <div className="p-5 rounded-[24px] bg-[#f3fbf6] border-r-8 border-[#006c4c] text-right">
+                          <p className="font-bold text-xs opacity-40 mb-2 uppercase tracking-widest">تێبینی من</p>
+                          <p className="line-clamp-3 text-[#002114] leading-relaxed">{localTafseer.text}</p>
                         </div>
-                        {localTafseer ? (
-                          <p className="text-sm leading-relaxed">{localTafseer.text}</p>
-                        ) : (
-                          <p className="text-sm italic opacity-40">هیچ تەفسیرێک تۆمار نەکراوە.</p>
-                        )}
-                      </div>
+                      ) : (
+                        focusMode === DisplayFocus.TAFSEER_ONLY && (
+                          <div className="p-5 rounded-[24px] bg-gray-50 border-r-8 border-gray-300 text-right opacity-60">
+                             <p className="text-sm italic">هیچ تەفسیرێک تۆمار نەکراوە.</p>
+                          </div>
+                        )
+                      )
                     )}
                   </div>
                 );
               })}
             </div>
-          )}
+           )}
         </div>
       )}
       
@@ -321,8 +270,6 @@ const App: React.FC = () => {
           onPrev={handlePrevVerse}
           theme={theme}
           onThemeChange={setTheme}
-          focusMode={focusMode}
-          onFocusModeChange={setFocusMode}
           isLandscape={isLandscape}
           onClose={() => {
             setSelectedVerse(null);

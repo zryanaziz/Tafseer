@@ -28,58 +28,53 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   const getHeaderStyle = () => {
     switch(theme) {
-      case AppTheme.DARK: return 'bg-gray-950 text-white border-b border-gray-800';
-      case AppTheme.SEPIA: return 'bg-orange-950 text-orange-50';
-      default: return 'bg-emerald-800 text-white';
+      case AppTheme.DARK: return 'bg-[#191c1a] text-[#e1e3df] border-b border-[#404943]';
+      case AppTheme.SEPIA: return 'bg-[#fdf3e7] text-[#504538] border-b border-[#e9ddd0]';
+      default: return 'bg-[#fbfdf9] text-[#191c1a] border-b border-[#dce5dd]';
     }
   };
 
   const getNavStyle = () => {
     switch(theme) {
-      case AppTheme.DARK: return 'bg-gray-950 border-t border-gray-800';
-      case AppTheme.SEPIA: return 'bg-orange-50 border-t border-orange-200';
-      default: return 'bg-white border-t border-gray-200';
-    }
-  };
-
-  const getBgStyle = () => {
-    switch(theme) {
-      case AppTheme.DARK: return 'bg-gray-900';
-      case AppTheme.SEPIA: return 'bg-orange-50';
-      default: return 'bg-gray-50';
+      case AppTheme.DARK: return 'bg-[#191c1a] border-t border-[#404943]';
+      case AppTheme.SEPIA: return 'bg-[#fdf3e7] border-t border-[#e9ddd0]';
+      default: return 'bg-[#fbfdf9] border-t border-[#dce5dd]';
     }
   };
 
   return (
-    <div className={`flex flex-col h-screen max-w-4xl mx-auto overflow-hidden relative transition-colors duration-500 ${getBgStyle()}`}>
+    <div className={`flex flex-col h-screen w-full overflow-hidden relative select-none`}>
+      {/* Top App Bar - MD3 Center Aligned Style */}
       {!hideHeader && (
-        <header className={`${getHeaderStyle()} px-4 py-4 flex items-center justify-between shadow-md z-10 shrink-0`}>
-          <div className="flex items-center gap-4">
+        <header className={`${getHeaderStyle()} pt-safe px-4 py-3 flex items-center justify-between z-20 shrink-0`}>
+          <div className="flex items-center gap-3">
             {showBack ? (
-              <button onClick={onBack} className="p-1 hover:opacity-70 rounded-full transition-all">
+              <button onClick={onBack} className="p-2 rounded-full active:bg-black/10 transition-colors">
                 <ArrowRight size={24} />
               </button>
             ) : (
-              <button className="p-1">
+              <button className="p-2 rounded-full active:bg-black/10 transition-colors">
                 <Menu size={24} />
               </button>
             )}
-            <h1 className="text-xl font-semibold tracking-tight truncate max-w-[200px]">{title}</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => onNavigate(AppScreen.SEARCH)} className="p-1">
-              <Search size={22} />
+          <h1 className="text-xl font-medium tracking-tight truncate flex-1 text-center">{title}</h1>
+          <div className="flex items-center gap-1">
+            <button onClick={() => onNavigate(AppScreen.SEARCH)} className="p-2 rounded-full active:bg-black/10 transition-colors">
+              <Search size={24} />
             </button>
           </div>
         </header>
       )}
 
-      <main className={`flex-1 overflow-y-auto relative ${hideNav ? 'pb-0' : 'pb-20'}`}>
+      {/* Main Content with Native Scrolling */}
+      <main className={`flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth ${hideNav ? 'pb-safe' : 'pb-24'}`}>
         {children}
       </main>
 
+      {/* Navigation Bar - MD3 Style with active indicator pill */}
       {!hideNav && (
-        <nav className={`${getNavStyle()} flex justify-around items-center h-16 safe-bottom absolute bottom-0 left-0 right-0 z-20`}>
+        <nav className={`${getNavStyle()} flex justify-around items-center h-20 pb-safe absolute bottom-0 left-0 right-0 z-30 px-2`}>
           <NavItem 
             icon={<Home size={24} />} 
             label="سەرەتا" 
@@ -89,14 +84,14 @@ const Layout: React.FC<LayoutProps> = ({
           />
           <NavItem 
             icon={<Bookmark size={24} />} 
-            label="نیشانەکراوەکان" 
+            label="نیشانە" 
             active={activeScreen === AppScreen.BOOKMARKS} 
             onClick={() => onNavigate(AppScreen.BOOKMARKS)} 
             theme={theme}
           />
           <NavItem 
             icon={<MessageSquare size={24} />} 
-            label="یاریدەدەری زیرەک" 
+            label="ژیری" 
             active={activeScreen === AppScreen.AI_CHAT} 
             onClick={() => onNavigate(AppScreen.AI_CHAT)} 
             theme={theme}
@@ -108,32 +103,23 @@ const Layout: React.FC<LayoutProps> = ({
 };
 
 const NavItem: React.FC<{ icon: React.ReactNode, label: string, active: boolean, onClick: () => void, theme: AppTheme }> = ({ icon, label, active, onClick, theme }) => {
-  const getActiveColor = () => {
-    switch(theme) {
-      case AppTheme.DARK: return active ? 'text-emerald-400' : 'text-gray-500';
-      case AppTheme.SEPIA: return active ? 'text-orange-900' : 'text-orange-300';
-      default: return active ? 'text-emerald-700' : 'text-gray-500';
-    }
-  };
-
-  const getActiveBg = () => {
-    if (!active) return '';
-    switch(theme) {
-      case AppTheme.DARK: return 'bg-gray-800';
-      case AppTheme.SEPIA: return 'bg-orange-200';
-      default: return 'bg-emerald-50';
-    }
-  };
-
+  const isDark = theme === AppTheme.DARK;
+  
   return (
     <button 
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-full h-full transition-all ${getActiveColor()}`}
+      className={`flex flex-col items-center justify-center w-full h-full transition-all group`}
     >
-      <div className={`p-1 rounded-xl transition-all ${getActiveBg()}`}>
+      <div className={`relative px-5 py-1 rounded-full transition-all duration-300 ${
+        active 
+          ? (isDark ? 'bg-[#3b4b41] text-[#9cf4c6]' : 'bg-[#cce8d9] text-[#002114]') 
+          : 'text-gray-500 hover:bg-gray-100'
+      }`}>
         {icon}
       </div>
-      <span className="text-[10px] mt-1 font-medium">{label}</span>
+      <span className={`text-xs mt-1 font-medium tracking-tight ${active ? 'text-inherit font-bold' : 'text-gray-500'}`}>
+        {label}
+      </span>
     </button>
   );
 };

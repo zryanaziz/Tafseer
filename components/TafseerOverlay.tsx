@@ -13,8 +13,6 @@ interface TafseerOverlayProps {
   isNavigating: boolean;
   theme: AppTheme;
   onThemeChange: (theme: AppTheme) => void;
-  focusMode: DisplayFocus;
-  onFocusModeChange: (mode: DisplayFocus) => void;
   isLandscape?: boolean;
 }
 
@@ -26,8 +24,6 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
   isNavigating,
   theme,
   onThemeChange,
-  focusMode,
-  onFocusModeChange,
   isLandscape = false
 }) => {
   const [tafseer, setTafseer] = useState<LocalTafseer | null>(null);
@@ -38,6 +34,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [fontSize, setFontSize] = useState(16);
   const [showSettings, setShowSettings] = useState(false);
+  const [focusMode, setFocusMode] = useState<DisplayFocus>(DisplayFocus.BOTH);
   
   const saveTimeoutRef = useRef<number | null>(null);
 
@@ -184,7 +181,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           </div>
           <div className="flex items-center gap-4">
             {saveStatus === 'saving' && <Loader2 size={14} className="animate-spin text-emerald-500" />}
-            <button onClick={() => onFocusModeChange(focusMode === DisplayFocus.BOTH ? DisplayFocus.TAFSEER_ONLY : DisplayFocus.BOTH)} className="p-2">
+            <button onClick={() => setFocusMode(focusMode === DisplayFocus.BOTH ? DisplayFocus.TAFSEER_ONLY : DisplayFocus.BOTH)} className="p-2">
               <LayoutTemplate size={18} />
             </button>
             <button onClick={() => setIsEditing(!isEditing)} className={`px-4 py-1.5 rounded-full text-xs font-bold ${isEditing ? 'bg-emerald-500 text-white' : 'border border-gray-200'}`}>
@@ -207,7 +204,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
                 ].map(mode => (
                   <button
                     key={mode.id}
-                    onClick={() => onFocusModeChange(mode.id)}
+                    onClick={() => setFocusMode(mode.id)}
                     className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
                       focusMode === mode.id 
                         ? 'bg-emerald-600 text-white shadow-lg' 
