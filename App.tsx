@@ -6,9 +6,16 @@ import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadPersistedDB, getTafseerFromDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme } from './types';
-import { Database, Loader2, Play, Pause, FileBox, Info, AlertCircle, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash } from 'lucide-react';
+import { Database, Loader2, Play, Pause, FileBox, Info, AlertCircle, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, Mic2 } from 'lucide-react';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
+
+const RECITERS = [
+  { id: 7, name: 'میشاری عەفاسی' },
+  { id: 9, name: 'محمد سدیق مەنشاوی' },
+  { id: 1, name: 'عبدالباسط عبدالصمد' },
+  { id: 4, name: 'سعود شریم' }
+];
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
@@ -19,6 +26,7 @@ const App: React.FC = () => {
   
   const [theme, setTheme] = useState<AppTheme>(() => (localStorage.getItem('app_theme') as AppTheme) || AppTheme.EMERALD);
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('app_view_mode') as ViewMode) || 'both');
+  const [reciterId, setReciterId] = useState<number>(() => Number(localStorage.getItem('app_reciter_id')) || 7);
   
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
   const [verses, setVerses] = useState<Verse[]>([]);
@@ -45,38 +53,32 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('app_theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('app_view_mode', viewMode); }, [viewMode]);
+  useEffect(() => { localStorage.setItem('app_reciter_id', reciterId.toString()); }, [reciterId]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLoading(true);
-      try {
-        const result = await initSQLite(file);
-        if (result.success) {
-          setDbReady(true);
-        } else {
-          alert(result.error);
-        }
-      } catch (err) {
-        alert("هەڵەیەکی نەزانراو ڕوویدا لە کاتی بارکردنی فایلەکە.");
-      } finally {
-        setLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+  // Refetch verses if reciter changes while viewing a surah
+  useEffect(() => {
+    if (selectedSurah && screen === AppScreen.SURAH_DETAIL) {
+      loadVerses(selectedSurah.id);
+    }
+  }, [reciterId]);
+
+  const loadVerses = async (surahId: number) => {
+    setLoading(true);
+    try {
+      const data = await fetchSurahVerses(surahId, reciterId);
+      setVerses(data);
+    } catch (err) {
+      console.error("Failed to load verses:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSurahClick = async (surah: Surah) => {
     setSelectedSurah(surah);
-    setLoading(true);
     setScreen(AppScreen.SURAH_DETAIL);
-    setJumpToAyah(""); // Reset ayah jump
-    try {
-      const data = await fetchSurahVerses(surah.id);
-      setVerses(data);
-    } finally {
-      setLoading(false);
-    }
+    setJumpToAyah("");
+    await loadVerses(surah.id);
   };
 
   const scrollToAyah = (ayahNum: string) => {
@@ -93,7 +95,10 @@ const App: React.FC = () => {
       audioRef.current?.pause();
       setPlayingKey(null);
     } else {
-      if (audioRef.current) audioRef.current.src = "";
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
       const url = v.audio?.url || "";
       if (!url) return;
       const finalUrl = url.startsWith('//') ? `https:${url}` : url;
@@ -101,7 +106,10 @@ const App: React.FC = () => {
       audioRef.current = audio;
       setPlayingKey(v.verse_key);
       audio.play().catch(() => setPlayingKey(null));
-      audio.onended = () => setPlayingKey(null);
+      audio.onended = () => {
+        setPlayingKey(null);
+        // Auto play next verse logic could go here
+      };
     }
   };
 
@@ -114,34 +122,69 @@ const App: React.FC = () => {
     }
   };
 
+  // Added handleFileUpload to handle input change and initialize the SQLite database.
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const result = await initSQLite(file);
+    if (result.success) {
+      setDbReady(true);
+    } else {
+      alert(result.error || "هەڵەیەک ڕوویدا لە کاتی بارکردنی فایلەکە.");
+    }
+    setLoading(false);
+  };
+
   const renderHome = () => (
     <div className="page-enter py-4 px-4 space-y-6">
-      {/* View Mode Selector */}
-      <div className={`p-6 rounded-[32px] shadow-lg transition-all ${
+      {/* View Mode & Reciter Quick Settings */}
+      <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 ${
         theme === AppTheme.DARK ? 'bg-[#212622] border border-gray-800' : 'bg-white border border-gray-100'
       }`}>
-        <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
-          <LayoutIcon size={16} /> شێوازی پیشاندان
-        </h4>
-        <div className={`flex p-1 rounded-2xl ${theme === AppTheme.DARK ? 'bg-black/40' : 'bg-gray-100'}`}>
-          {[
-            { id: 'quran', label: 'قورئان', icon: <AlignRight size={14} /> },
-            { id: 'both', label: 'هەردووکی', icon: <LayoutIcon size={14} /> },
-            { id: 'tafseer', label: 'تەفسیر', icon: <BookOpen size={14} /> }
-          ].map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setViewMode(mode.id as ViewMode)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-bold transition-all ${
-                viewMode === mode.id 
-                  ? (theme === AppTheme.DARK ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-emerald-900 shadow-md') 
-                  : 'opacity-50 grayscale'
+        <div>
+          <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
+            <LayoutIcon size={16} /> شێوازی پیشاندان
+          </h4>
+          <div className={`flex p-1 rounded-2xl ${theme === AppTheme.DARK ? 'bg-black/40' : 'bg-gray-100'}`}>
+            {[
+              { id: 'quran', label: 'قورئان', icon: <AlignRight size={14} /> },
+              { id: 'both', label: 'هەردووکی', icon: <LayoutIcon size={14} /> },
+              { id: 'tafseer', label: 'تەفسیر', icon: <BookOpen size={14} /> }
+            ].map((mode) => (
+              <button
+                key={mode.id}
+                onClick={() => setViewMode(mode.id as ViewMode)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-bold transition-all ${
+                  viewMode === mode.id 
+                    ? (theme === AppTheme.DARK ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-emerald-900 shadow-md') 
+                    : 'opacity-50 grayscale'
+                }`}
+              >
+                {mode.icon}
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
+            <Mic2 size={16} /> خوێنەر (دەنگ)
+          </h4>
+          <div className="relative">
+            <select 
+              value={reciterId} 
+              onChange={(e) => setReciterId(Number(e.target.value))}
+              className={`w-full appearance-none px-6 py-4 rounded-2xl font-bold text-sm focus:outline-none transition-all pr-12 ${
+                theme === AppTheme.DARK ? 'bg-black/40 text-emerald-400' : 'bg-gray-100 text-emerald-900'
               }`}
             >
-              {mode.icon}
-              {mode.label}
-            </button>
-          ))}
+              {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={18} /></div>
+          </div>
         </div>
       </div>
 
@@ -208,44 +251,60 @@ const App: React.FC = () => {
       
       {screen === AppScreen.SURAH_DETAIL && (
         <div className="page-enter pb-24">
-          {/* Quick Nav Bar: Surah and Ayah Selectors */}
-          <div className={`sticky top-0 z-20 p-3 flex gap-2 items-center justify-center border-b transition-colors ${
+          {/* Enhanced Sticky Header with Reciter Picker */}
+          <div className={`sticky top-0 z-20 p-3 flex flex-col gap-2 border-b shadow-md transition-colors ${
             theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'
           }`}>
-            {/* Surah Selector */}
-            <div className="relative flex-1 max-w-[180px]">
-              <select 
-                value={selectedSurah?.id || ""} 
-                onChange={(e) => {
-                  const s = surahs.find(sur => sur.id === parseInt(e.target.value));
-                  if (s) handleSurahClick(s);
-                }}
-                className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
-                  theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
-                }`}
-              >
-                {surahs.map(s => (
-                  <option key={s.id} value={s.id}>{s.id}. {s.name_arabic}</option>
-                ))}
-              </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={14} /></div>
-            </div>
+            <div className="flex gap-2 items-center justify-center">
+              {/* Surah Selector */}
+              <div className="relative flex-1 max-w-[150px]">
+                <select 
+                  value={selectedSurah?.id || ""} 
+                  onChange={(e) => {
+                    const s = surahs.find(sur => sur.id === parseInt(e.target.value));
+                    if (s) handleSurahClick(s);
+                  }}
+                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
+                    theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
+                  }`}
+                >
+                  {surahs.map(s => (
+                    <option key={s.id} value={s.id}>{s.id}. {s.name_arabic}</option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={12} /></div>
+              </div>
 
-            {/* Ayah Selector */}
-            <div className="relative flex-1 max-w-[120px]">
-              <select 
-                value={jumpToAyah} 
-                onChange={(e) => scrollToAyah(e.target.value)}
-                className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
-                  theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
-                }`}
-              >
-                <option value="">ئایەت</option>
-                {Array.from({ length: selectedSurah?.verses_count || 0 }, (_, i) => i + 1).map(num => (
-                  <option key={num} value={num}>{num}</option>
-                ))}
-              </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={14} /></div>
+              {/* Ayah Selector */}
+              <div className="relative flex-1 max-w-[90px]">
+                <select 
+                  value={jumpToAyah} 
+                  onChange={(e) => scrollToAyah(e.target.value)}
+                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
+                    theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
+                  }`}
+                >
+                  <option value="">ئایەت</option>
+                  {Array.from({ length: selectedSurah?.verses_count || 0 }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={12} /></div>
+              </div>
+
+              {/* Reciter Selector */}
+              <div className="relative flex-1 max-w-[140px]">
+                <select 
+                  value={reciterId} 
+                  onChange={(e) => setReciterId(Number(e.target.value))}
+                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
+                    theme === AppTheme.DARK ? 'bg-emerald-900/50 text-emerald-200' : 'bg-emerald-700 text-white'
+                  }`}
+                >
+                  {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name.split(' ').pop()}</option>)}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Mic2 size={12} /></div>
+              </div>
             </div>
           </div>
 
@@ -259,9 +318,8 @@ const App: React.FC = () => {
               return (
                 <div 
                   key={v.id} 
-                  // Fix: Wrapped the ref assignment in curly braces to ensure it returns void, addressing the error: Type '(el: HTMLDivElement) => HTMLDivElement' is not assignable to type 'Ref<HTMLDivElement>'
                   ref={(el) => { verseRefs.current[v.verse_key] = el; }}
-                  className={`p-6 border-b transition-colors scroll-mt-24 ${theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
+                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <div className="flex justify-between items-center mb-6">
                     <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
@@ -282,7 +340,7 @@ const App: React.FC = () => {
                     </p>
                   )}
 
-                  {/* Tafseer View (Full text, no clippings) */}
+                  {/* Tafseer View */}
                   {(viewMode === 'tafseer' || viewMode === 'both') && (
                     <div className={`text-right p-6 rounded-[32px] border-r-8 transition-all animate-in fade-in duration-500 ${
                       theme === AppTheme.DARK 
