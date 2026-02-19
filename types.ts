@@ -14,51 +14,49 @@ export interface Verse {
   id: number;
   verse_key: string;
   text_uthmani: string;
-  text_indopak?: string;
   translations?: Array<{
     text: string;
-    resource_name: string;
   }>;
+  audio?: {
+    url: string;
+  };
 }
 
+/**
+ * Interface representing a Tafseer entry from the Quran API
+ */
 export interface Tafseer {
-  resource_id: number;
-  text: string;
   id?: number;
+  text: string;
+  resource_id?: number;
   resource_name?: string;
 }
 
+/**
+ * Interface representing a local user interpretation or saved tafseer entry
+ */
 export interface LocalTafseer {
   verse_key: string;
   text: string;
   last_updated: number;
-  author?: string;
+  isLocked: boolean;
 }
 
-export interface Bookmark {
-  surahId: number;
-  verseNumber: number;
-  surahName: string;
-}
-
+/**
+ * Navigation screen identifiers for the application
+ */
 export enum AppScreen {
   HOME = 'home',
   SURAH_DETAIL = 'surah_detail',
-  TAFSEER_VIEW = 'tafseer_view',
-  BOOKMARKS = 'bookmarks',
+  SETTINGS = 'settings',
   SEARCH = 'search',
+  BOOKMARKS = 'bookmarks',
   AI_CHAT = 'ai_chat'
 }
 
 export enum AppTheme {
   EMERALD = 'emerald',
   DARK = 'dark',
-  LIGHT = 'light',
-  SEPIA = 'sepia'
-}
-
-export enum DisplayFocus {
-  BOTH = 'both',
-  QURAN_ONLY = 'quran_only',
-  TAFSEER_ONLY = 'tafseer_only'
+  SEPIA = 'sepia',
+  LIGHT = 'light'
 }
