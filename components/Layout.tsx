@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Bookmark, Search, MessageSquare, Menu, ArrowRight } from 'lucide-react';
+import { Home, Bookmark, Search, Menu, ArrowRight } from 'lucide-react';
 import { AppScreen, AppTheme } from '../types';
 
 interface LayoutProps {
@@ -58,7 +58,6 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
             )}
           </div>
-          {/* Only show title on home, detail uses a custom switcher */}
           <h1 className="text-xl font-medium tracking-tight truncate flex-1 text-center">
             {activeScreen === AppScreen.SURAH_DETAIL ? "خوێندنەوە" : title}
           </h1>
@@ -90,13 +89,6 @@ const Layout: React.FC<LayoutProps> = ({
             label="نیشانە" 
             active={activeScreen === AppScreen.BOOKMARKS} 
             onClick={() => onNavigate(AppScreen.BOOKMARKS)} 
-            theme={theme}
-          />
-          <NavItem 
-            icon={<MessageSquare size={24} />} 
-            label="ژیری" 
-            active={activeScreen === AppScreen.AI_CHAT} 
-            onClick={() => onNavigate(AppScreen.AI_CHAT)} 
             theme={theme}
           />
         </nav>

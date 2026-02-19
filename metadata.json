@@ -1,7 +1,5 @@
 {
   "name": "Tafseer AI",
   "description": "A high-performance Quranic Tafseer application",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

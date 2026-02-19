@@ -19,10 +19,9 @@ export const fetchSurahs = async (): Promise<Surah[]> => {
   return data.chapters;
 };
 
-export const fetchSurahVerses = async (surahId: number, reciterId: number = 7, page: number = 1): Promise<Verse[]> => {
-  // reciterId 7 is Alafasy, 9 is Al-Minshawi (Murattal)
+export const fetchSurahVerses = async (surahId: number, page: number = 1): Promise<Verse[]> => {
   const response = await fetch(
-    `${QURAN_API_BASE}/verses/by_chapter/${surahId}?language=en&words=false&translations=${TRANSLATION_ID}&fields=text_uthmani&per_page=300&page=${page}&audio=${reciterId}`
+    `${QURAN_API_BASE}/verses/by_chapter/${surahId}?language=en&words=false&translations=${TRANSLATION_ID}&fields=text_uthmani&per_page=300&page=${page}`
   );
   const data = await handleResponse(response);
   return data.verses;

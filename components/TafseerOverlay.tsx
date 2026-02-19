@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, ChevronLeft, ChevronRight, Lock, Database, Loader2, Layout as LayoutIcon, AlignRight, BookOpen } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen } from 'lucide-react';
 import { Verse, AppTheme } from '../types';
 import { getTafseerFromDB } from '../services/dbService';
-import { getAIInsights } from '../services/geminiService';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 
@@ -15,14 +14,13 @@ interface TafseerOverlayProps {
   theme: AppTheme;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  fontSize: number;
 }
 
 const TafseerOverlay: React.FC<TafseerOverlayProps> = ({ 
-  verse, onClose, onNext, onPrev, theme, viewMode, onViewModeChange 
+  verse, onClose, onNext, onPrev, theme, viewMode, onViewModeChange, fontSize
 }) => {
   const [dbContent, setDbContent] = useState<string | null>(null);
-  const [aiInsights, setAiInsights] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
 
   useEffect(() => {
     const parts = verse.verse_key.split(':');
@@ -30,19 +28,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
     const verseId = parseInt(parts[1]);
     
     setDbContent(getTafseerFromDB(surahId, verseId));
-    setAiInsights(null);
   }, [verse.verse_key]);
-
-  const handleAiRequest = async () => {
-    setLoadingAi(true);
-    const insights = await getAIInsights(
-      verse.text_uthmani, 
-      verse.translations?.[0]?.text || "", 
-      dbContent || "No local interpretation provided."
-    );
-    setAiInsights(insights);
-    setLoadingAi(false);
-  };
 
   const getOverlayBg = () => {
     switch(theme) {
@@ -108,11 +94,17 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           <div className={`p-8 rounded-[40px] border shadow-sm text-right transition-all animate-in fade-in duration-500 ${
             theme === AppTheme.DARK ? 'bg-[#212622] border-gray-800' : theme === AppTheme.SEPIA ? 'bg-orange-100/50 border-orange-200' : 'bg-emerald-50 border-emerald-100'
           }`}>
-            <p className="arabic-text text-4xl leading-[2.2] mb-6 text-[#006c4c] dark:text-[#9cf4c6] select-text">
+            <p 
+              className="arabic-text leading-[2.2] mb-6 text-[#006c4c] dark:text-[#9cf4c6] select-text"
+              style={{ fontSize: `${40 * fontSize}px` }}
+            >
               {verse.text_uthmani}
             </p>
             <div className="h-px w-full bg-current opacity-10 mb-6"></div>
-            <p className="text-sm opacity-80 leading-relaxed font-medium">
+            <p 
+              className="opacity-80 leading-relaxed font-medium"
+              style={{ fontSize: `${14 * fontSize}px` }}
+            >
               {verse.translations?.[0]?.text.replace(/<[^>]*>?/gm, '')}
             </p>
           </div>
@@ -126,13 +118,16 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-[0.2em]">ناوەڕۆکی فایلی SQLite</span>
             </div>
             
-            <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed text-lg shadow-inner border-t-4 transition-all ${
+            <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
               dbContent 
                 ? (theme === AppTheme.DARK ? 'bg-gray-800/50 border-emerald-500/50 text-gray-100' : 'bg-white border-emerald-600 text-gray-800') 
                 : 'border-gray-200 bg-gray-100 opacity-40 grayscale flex items-center justify-center'
             }`}>
               {dbContent ? (
-                <div className="whitespace-pre-wrap select-text">{dbContent}</div>
+                <div 
+                  className="whitespace-pre-wrap select-text"
+                  style={{ fontSize: `${18 * fontSize}px` }}
+                >{dbContent}</div>
               ) : (
                 <div className="flex flex-col items-center gap-4 opacity-50 text-center">
                   <Database size={32} />
@@ -140,41 +135,6 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* AI Insight Section */}
-        {viewMode === 'both' && (
-          <div className={`rounded-[40px] p-8 text-white shadow-2xl transition-all duration-500 ${
-            theme === AppTheme.SEPIA ? 'bg-orange-950' : 'bg-[#0f172a]'
-          }`}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-500/20 rounded-xl">
-                  <Sparkles size={20} className="text-emerald-400" />
-                </div>
-                <h3 className="font-bold text-sm tracking-wide">سەرنجی ژیری دەستکرد</h3>
-              </div>
-              {!aiInsights && (
-                <button 
-                  onClick={handleAiRequest} 
-                  disabled={loadingAi} 
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg"
-                >
-                  {loadingAi ? <Loader2 size={14} className="animate-spin" /> : 'شیکردنەوە'}
-                </button>
-              )}
-            </div>
-            
-            {aiInsights ? (
-              <div className="text-sm leading-loose opacity-90 text-right prose prose-invert animate-in fade-in slide-in-from-bottom-2">
-                {aiInsights}
-              </div>
-            ) : (
-              <p className="text-[11px] opacity-40 text-right leading-relaxed">
-                بۆ دەستکەوتنی زانیاری زیاتر و لێکۆڵینەوەی قووڵتر، داوای شیکردنەوە بکە.
-              </p>
-            )}
           </div>
         )}
       </div>

@@ -22,6 +22,13 @@ export interface Verse {
   };
 }
 
+export interface LastRead {
+  surahId: number;
+  surahName: string;
+  verseKey: string;
+  timestamp: number;
+}
+
 /**
  * Interface representing a Tafseer entry from the Quran API
  */

@@ -5,28 +5,25 @@ import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadPersistedDB, getTafseerFromDB } from './services/dbService';
-import { Surah, Verse, AppScreen, AppTheme } from './types';
-import { Database, Loader2, Play, Pause, FileBox, Info, AlertCircle, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, Mic2 } from 'lucide-react';
+import { Surah, Verse, AppScreen, AppTheme, LastRead } from './types';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus } from 'lucide-react';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
-
-const RECITERS = [
-  { id: 7, name: 'میشاری عەفاسی' },
-  { id: 9, name: 'محمد سدیق مەنشاوی' },
-  { id: 1, name: 'عبدالباسط عبدالصمد' },
-  { id: 4, name: 'سعود شریم' }
-];
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbReady, setDbReady] = useState(false);
-  const [showSchemaInfo, setShowSchemaInfo] = useState(false);
   
   const [theme, setTheme] = useState<AppTheme>(() => (localStorage.getItem('app_theme') as AppTheme) || AppTheme.EMERALD);
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('app_view_mode') as ViewMode) || 'both');
-  const [reciterId, setReciterId] = useState<number>(() => Number(localStorage.getItem('app_reciter_id')) || 7);
+  const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('app_font_size')) || 1);
+  const [showInSurahFontSettings, setShowInSurahFontSettings] = useState(false);
+  const [lastRead, setLastRead] = useState<LastRead | null>(() => {
+    const saved = localStorage.getItem('app_last_read');
+    return saved ? JSON.parse(saved) : null;
+  });
   
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
   const [verses, setVerses] = useState<Verse[]>([]);
@@ -34,9 +31,7 @@ const App: React.FC = () => {
   const [jumpToAyah, setJumpToAyah] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const verseRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [playingKey, setPlayingKey] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -53,19 +48,24 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('app_theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('app_view_mode', viewMode); }, [viewMode]);
-  useEffect(() => { localStorage.setItem('app_reciter_id', reciterId.toString()); }, [reciterId]);
+  useEffect(() => { localStorage.setItem('app_font_size', fontSize.toString()); }, [fontSize]);
+  useEffect(() => { 
+    if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
+  }, [lastRead]);
 
-  // Refetch verses if reciter changes while viewing a surah
-  useEffect(() => {
-    if (selectedSurah && screen === AppScreen.SURAH_DETAIL) {
-      loadVerses(selectedSurah.id);
-    }
-  }, [reciterId]);
+  const saveLastRead = (surah: Surah, verseKey: string) => {
+    setLastRead({
+      surahId: surah.id,
+      surahName: surah.name_arabic,
+      verseKey: verseKey,
+      timestamp: Date.now()
+    });
+  };
 
   const loadVerses = async (surahId: number) => {
     setLoading(true);
     try {
-      const data = await fetchSurahVerses(surahId, reciterId);
+      const data = await fetchSurahVerses(surahId);
       setVerses(data);
     } catch (err) {
       console.error("Failed to load verses:", err);
@@ -79,6 +79,7 @@ const App: React.FC = () => {
     setScreen(AppScreen.SURAH_DETAIL);
     setJumpToAyah("");
     await loadVerses(surah.id);
+    saveLastRead(surah, `${surah.id}:1`);
   };
 
   const scrollToAyah = (ayahNum: string) => {
@@ -87,29 +88,7 @@ const App: React.FC = () => {
     const element = verseRefs.current[key];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const toggleAudio = (v: Verse) => {
-    if (playingKey === v.verse_key) {
-      audioRef.current?.pause();
-      setPlayingKey(null);
-    } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
-      const url = v.audio?.url || "";
-      if (!url) return;
-      const finalUrl = url.startsWith('//') ? `https:${url}` : url;
-      const audio = new Audio(finalUrl);
-      audioRef.current = audio;
-      setPlayingKey(v.verse_key);
-      audio.play().catch(() => setPlayingKey(null));
-      audio.onended = () => {
-        setPlayingKey(null);
-        // Auto play next verse logic could go here
-      };
+      if (selectedSurah) saveLastRead(selectedSurah, key);
     }
   };
 
@@ -118,11 +97,24 @@ const App: React.FC = () => {
     const idx = verses.findIndex(v => v.id === selectedVerse.id);
     const nextIdx = idx + offset;
     if (nextIdx >= 0 && nextIdx < verses.length) {
-      setSelectedVerse(verses[nextIdx]);
+      const nextV = verses[nextIdx];
+      setSelectedVerse(nextV);
+      if (selectedSurah) saveLastRead(selectedSurah, nextV.verse_key);
     }
   };
 
-  // Added handleFileUpload to handle input change and initialize the SQLite database.
+  const handleSurahNavigate = async (offset: number) => {
+    if (!selectedSurah) return;
+    const currentIdx = surahs.findIndex(s => s.id === selectedSurah.id);
+    const nextIdx = currentIdx + offset;
+    if (nextIdx >= 0 && nextIdx < surahs.length) {
+      const nextSurah = surahs[nextIdx];
+      await handleSurahClick(nextSurah);
+      const main = document.querySelector('main');
+      if (main) main.scrollTop = 0;
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -139,7 +131,36 @@ const App: React.FC = () => {
 
   const renderHome = () => (
     <div className="page-enter py-4 px-4 space-y-6">
-      {/* View Mode & Reciter Quick Settings */}
+      {/* Last Read Section - Small size front page */}
+      {lastRead && (
+        <div 
+          onClick={() => {
+            const s = surahs.find(sur => sur.id === lastRead.surahId);
+            if (s) {
+              handleSurahClick(s).then(() => {
+                const ayah = lastRead.verseKey.split(':')[1];
+                setTimeout(() => scrollToAyah(ayah), 500);
+              });
+            }
+          }}
+          className={`p-3 rounded-[20px] shadow-sm flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer border ${
+            theme === AppTheme.DARK ? 'bg-[#212622] border-gray-800' : 'bg-emerald-50 border-emerald-100'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-emerald-600/10 text-emerald-600">
+              <Clock size={14} />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest">کۆتا خوێندنەوە</p>
+              <h4 className="font-bold text-xs">{lastRead.surahName} - {lastRead.verseKey.split(':')[1]}</h4>
+            </div>
+          </div>
+          <ArrowLeft size={14} className="opacity-20" />
+        </div>
+      )}
+
+      {/* View Mode & Font Size Settings */}
       <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 ${
         theme === AppTheme.DARK ? 'bg-[#212622] border border-gray-800' : 'bg-white border border-gray-100'
       }`}>
@@ -170,20 +191,24 @@ const App: React.FC = () => {
         </div>
 
         <div>
-          <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
-            <Mic2 size={16} /> خوێنەر (دەنگ)
-          </h4>
-          <div className="relative">
-            <select 
-              value={reciterId} 
-              onChange={(e) => setReciterId(Number(e.target.value))}
-              className={`w-full appearance-none px-6 py-4 rounded-2xl font-bold text-sm focus:outline-none transition-all pr-12 ${
-                theme === AppTheme.DARK ? 'bg-black/40 text-emerald-400' : 'bg-gray-100 text-emerald-900'
-              }`}
-            >
-              {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={18} /></div>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-bold flex items-center gap-2 opacity-60">
+              <Type size={16} /> قەبارەی دەق
+            </h4>
+            <span className="text-lg font-bold px-3 py-1 rounded-xl bg-emerald-600 text-white shadow-md">{Math.round(fontSize * 100)}%</span>
+          </div>
+          <div className="px-2 flex items-center gap-4">
+            <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl font-bold active:scale-90 transition-all">-</button>
+            <input 
+              type="range" 
+              min="0.5" 
+              max="2.5" 
+              step="0.1" 
+              value={fontSize} 
+              onChange={(e) => setFontSize(parseFloat(e.target.value))}
+              className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+            />
+            <button onClick={() => setFontSize(prev => Math.min(2.5, prev + 0.1))} className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl font-bold active:scale-90 transition-all">+</button>
           </div>
         </div>
       </div>
@@ -223,7 +248,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-1">
+      <div className="grid grid-cols-1 gap-1 pb-10">
         {surahs.map(s => <SurahCard key={s.id} surah={s} theme={theme} onClick={handleSurahClick} />)}
       </div>
     </div>
@@ -251,20 +276,18 @@ const App: React.FC = () => {
       
       {screen === AppScreen.SURAH_DETAIL && (
         <div className="page-enter pb-24">
-          {/* Enhanced Sticky Header with Reciter Picker */}
-          <div className={`sticky top-0 z-20 p-3 flex flex-col gap-2 border-b shadow-md transition-colors ${
+          <div className={`sticky top-0 z-20 flex flex-col border-b shadow-md transition-colors ${
             theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'
           }`}>
-            <div className="flex gap-2 items-center justify-center">
-              {/* Surah Selector */}
-              <div className="relative flex-1 max-w-[150px]">
+            <div className="p-3 flex gap-2 items-center justify-center w-full">
+              <div className="relative flex-1 max-w-[200px]">
                 <select 
                   value={selectedSurah?.id || ""} 
                   onChange={(e) => {
                     const s = surahs.find(sur => sur.id === parseInt(e.target.value));
                     if (s) handleSurahClick(s);
                   }}
-                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
+                  className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
                     theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
                   }`}
                 >
@@ -272,15 +295,14 @@ const App: React.FC = () => {
                     <option key={s.id} value={s.id}>{s.id}. {s.name_arabic}</option>
                   ))}
                 </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={12} /></div>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><ChevronDown size={14} /></div>
               </div>
 
-              {/* Ayah Selector */}
-              <div className="relative flex-1 max-w-[90px]">
+              <div className="relative flex-1 max-w-[100px]">
                 <select 
                   value={jumpToAyah} 
                   onChange={(e) => scrollToAyah(e.target.value)}
-                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
+                  className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
                     theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
                   }`}
                 >
@@ -289,23 +311,47 @@ const App: React.FC = () => {
                     <option key={num} value={num}>{num}</option>
                   ))}
                 </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={12} /></div>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={14} /></div>
               </div>
 
-              {/* Reciter Selector */}
-              <div className="relative flex-1 max-w-[140px]">
-                <select 
-                  value={reciterId} 
-                  onChange={(e) => setReciterId(Number(e.target.value))}
-                  className={`w-full appearance-none px-3 py-2.5 rounded-xl font-bold text-[11px] text-center focus:outline-none transition-all pr-7 ${
-                    theme === AppTheme.DARK ? 'bg-emerald-900/50 text-emerald-200' : 'bg-emerald-700 text-white'
-                  }`}
-                >
-                  {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name.split(' ').pop()}</option>)}
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Mic2 size={12} /></div>
-              </div>
+              {/* Toggler for In-Surah Font Settings */}
+              <button 
+                onClick={() => setShowInSurahFontSettings(!showInSurahFontSettings)}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  showInSurahFontSettings 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : (theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900')
+                }`}
+              >
+                <Type size={18} />
+              </button>
             </div>
+
+            {/* In-Surah Font Size Control Bar */}
+            {showInSurahFontSettings && (
+              <div className={`px-4 py-4 flex items-center gap-4 animate-in slide-in-from-top duration-200 border-t ${
+                theme === AppTheme.DARK ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'
+              }`}>
+                <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Minus size={16} /></button>
+                <div className="flex-1 flex flex-col gap-1">
+                   <div className="flex justify-between text-[10px] font-bold opacity-50">
+                      <span>بچووک</span>
+                      <span className="text-emerald-600 font-bold">{Math.round(fontSize * 100)}%</span>
+                      <span>گەورە</span>
+                   </div>
+                   <input 
+                    type="range" 
+                    min="0.5" 
+                    max="2.5" 
+                    step="0.1" 
+                    value={fontSize} 
+                    onChange={(e) => setFontSize(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                  />
+                </div>
+                <button onClick={() => setFontSize(prev => Math.min(2.5, prev + 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Plus size={16} /></button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col">
@@ -323,24 +369,20 @@ const App: React.FC = () => {
                 >
                   <div className="flex justify-between items-center mb-6">
                     <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
-                    <div className="flex gap-2">
-                       <button onClick={() => toggleAudio(v)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${playingKey === v.verse_key ? 'bg-emerald-600 text-white animate-pulse' : 'bg-gray-100 text-gray-700'}`}>
-                          {playingKey === v.verse_key ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-                       </button>
-                       <button onClick={() => setSelectedVerse(v)} className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-700 text-white shadow-lg active:scale-95 transition-all">
-                         <Database size={16} />
-                       </button>
-                    </div>
+                    <button onClick={() => setSelectedVerse(v)} className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-700 text-white shadow-lg active:scale-95 transition-all">
+                      <Database size={16} />
+                    </button>
                   </div>
 
-                  {/* Quran View */}
                   {(viewMode === 'quran' || viewMode === 'both') && (
-                    <p className={`arabic-text text-3xl text-right leading-[2.4] select-text mb-6 ${theme === AppTheme.DARK ? 'text-gray-100' : 'text-gray-900'}`}>
+                    <p 
+                      className={`arabic-text text-right leading-[2.4] select-text mb-6 ${theme === AppTheme.DARK ? 'text-gray-100' : 'text-gray-900'}`}
+                      style={{ fontSize: `${32 * fontSize}px` }}
+                    >
                       {v.text_uthmani}
                     </p>
                   )}
 
-                  {/* Tafseer View */}
                   {(viewMode === 'tafseer' || viewMode === 'both') && (
                     <div className={`text-right p-6 rounded-[32px] border-r-8 transition-all animate-in fade-in duration-500 ${
                       theme === AppTheme.DARK 
@@ -348,7 +390,10 @@ const App: React.FC = () => {
                         : 'bg-emerald-50 border-emerald-600 text-gray-800 shadow-sm'
                     }`}>
                       {tafseerFullText ? (
-                        <div className="text-lg leading-loose whitespace-pre-wrap select-text">
+                        <div 
+                          className="leading-loose whitespace-pre-wrap select-text"
+                          style={{ fontSize: `${18 * fontSize}px` }}
+                        >
                           {tafseerFullText}
                         </div>
                       ) : (
@@ -362,6 +407,29 @@ const App: React.FC = () => {
                 </div>
               );
             })}
+
+            <div className="p-8 flex items-center justify-between gap-4">
+              <button 
+                onClick={() => handleSurahNavigate(-1)}
+                disabled={selectedSurah?.id === 1}
+                className={`flex-1 flex items-center justify-center gap-3 py-5 rounded-[28px] font-bold text-sm transition-all active:scale-95 shadow-lg disabled:opacity-20 ${
+                  theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900'
+                }`}
+              >
+                <ArrowRight size={20} />
+                سوورەتی پێشوو
+              </button>
+              <button 
+                onClick={() => handleSurahNavigate(1)}
+                disabled={selectedSurah?.id === 114}
+                className={`flex-1 flex items-center justify-center gap-3 py-5 rounded-[28px] font-bold text-sm transition-all active:scale-95 shadow-lg disabled:opacity-20 ${
+                  theme === AppTheme.DARK ? 'bg-emerald-900 text-white' : 'bg-emerald-700 text-white'
+                }`}
+              >
+                سوورەتی داهاتوو
+                <ArrowLeft size={20} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -375,6 +443,7 @@ const App: React.FC = () => {
           onClose={() => setSelectedVerse(null)}
           onNext={() => navigateVerse(1)}
           onPrev={() => navigateVerse(-1)}
+          fontSize={fontSize}
         />
       )}
     </Layout>
