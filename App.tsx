@@ -29,9 +29,13 @@ const App: React.FC = () => {
   const [verses, setVerses] = useState<Verse[]>([]);
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
   const [jumpToAyah, setJumpToAyah] = useState<string>("");
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const verseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastTap = useRef<number>(0);
+  const lastScrollY = useRef<number>(0);
 
   useEffect(() => {
     const init = async () => {
@@ -52,6 +56,38 @@ const App: React.FC = () => {
   useEffect(() => { 
     if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
   }, [lastRead]);
+
+  // Simple Automatic Tracking
+  useEffect(() => {
+    if (screen !== AppScreen.SURAH_DETAIL || verses.length === 0 || !selectedSurah) return;
+
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        // Find the entry that is most visible
+        const visibleEntry = entries.find(entry => entry.isIntersecting);
+        if (visibleEntry) {
+          const verseKey = visibleEntry.target.getAttribute('data-verse-key');
+          if (verseKey && lastRead?.verseKey !== verseKey) {
+            saveLastRead(selectedSurah, verseKey);
+          }
+        }
+      },
+      { threshold: 0.2, rootMargin: '-10% 0px -80% 0px' } // Focus on the top part of the screen
+    );
+
+    const timer = setTimeout(() => {
+      Object.values(verseRefs.current).forEach(el => {
+        if (el) observerRef.current?.observe(el);
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      observerRef.current?.disconnect();
+    };
+  }, [screen, verses, selectedSurah]);
 
   const saveLastRead = (surah: Surah, verseKey: string) => {
     setLastRead({
@@ -80,6 +116,10 @@ const App: React.FC = () => {
     setJumpToAyah("");
     await loadVerses(surah.id);
     saveLastRead(surah, `${surah.id}:1`);
+    
+    // Scroll to top of the main content area
+    const main = document.querySelector('main');
+    if (main) main.scrollTop = 0;
   };
 
   const scrollToAyah = (ayahNum: string) => {
@@ -110,9 +150,15 @@ const App: React.FC = () => {
     if (nextIdx >= 0 && nextIdx < surahs.length) {
       const nextSurah = surahs[nextIdx];
       await handleSurahClick(nextSurah);
-      const main = document.querySelector('main');
-      if (main) main.scrollTop = 0;
     }
+  };
+
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      setIsHeaderVisible(prev => !prev);
+    }
+    lastTap.current = now;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,6 +308,8 @@ const App: React.FC = () => {
       showBack={screen === AppScreen.SURAH_DETAIL}
       onBack={() => setScreen(AppScreen.HOME)}
       theme={theme}
+      hideNav={screen === AppScreen.SURAH_DETAIL}
+      hideHeader={screen === AppScreen.SURAH_DETAIL}
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-[60] flex items-center justify-center backdrop-blur-md">
@@ -275,11 +323,26 @@ const App: React.FC = () => {
       {screen === AppScreen.HOME && renderHome()}
       
       {screen === AppScreen.SURAH_DETAIL && (
-        <div className="page-enter pb-24">
-          <div className={`sticky top-0 z-20 flex flex-col border-b shadow-md transition-colors ${
+        <div className="page-enter pb-safe relative">
+          {/* Double-tap trigger area at the top */}
+          <div 
+            className="fixed top-0 left-0 right-0 h-20 z-[25] cursor-pointer"
+            onClick={handleDoubleTap}
+          />
+
+          <div className={`sticky top-0 z-20 flex flex-col border-b shadow-md transition-all duration-300 pt-safe ${
             theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'
-          }`}>
+          } ${isHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}>
             <div className="p-3 flex gap-2 items-center justify-center w-full">
+              <button 
+                onClick={() => setScreen(AppScreen.HOME)}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  theme === AppTheme.DARK ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
+                }`}
+              >
+                <ArrowRight size={20} />
+              </button>
+
               <div className="relative flex-1 max-w-[200px]">
                 <select 
                   value={selectedSurah?.id || ""} 
@@ -365,6 +428,7 @@ const App: React.FC = () => {
                 <div 
                   key={v.id} 
                   ref={(el) => { verseRefs.current[v.verse_key] = el; }}
+                  data-verse-key={v.verse_key}
                   className={`p-6 border-b transition-colors scroll-mt-32 ${theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <div className="flex justify-between items-center mb-6">
