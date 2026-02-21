@@ -1,21 +1,22 @@
 
 import React from 'react';
-import { Surah, AppTheme } from '../types';
+import { Surah, AppTheme, AccentColor } from '../types';
 
 interface SurahCardProps {
   surah: Surah;
   theme: AppTheme;
+  accentColor?: AccentColor;
   onClick: (surah: Surah) => void;
 }
 
-const SurahCard: React.FC<SurahCardProps> = ({ surah, theme, onClick }) => {
-  const isDark = theme === AppTheme.DARK;
+const SurahCard: React.FC<SurahCardProps> = ({ surah, theme, accentColor = AccentColor.EMERALD, onClick }) => {
+  const isDark = theme === AppTheme.DARK || theme === AppTheme.NIGHT;
   const isSepia = theme === AppTheme.SEPIA;
 
   const getCardBg = () => {
-    if (isDark) return 'bg-[#212622] text-[#e1e3df]';
-    if (isSepia) return 'bg-[#f5e8d9] text-[#504538]';
-    return 'bg-[#eff3ef] text-[#191c1a]';
+    if (isDark) return 'bg-[#212622]/40 text-[#e1e3df] backdrop-blur-sm border border-white/5';
+    if (isSepia) return 'bg-[#fdf3e7]/40 text-[#504538] backdrop-blur-sm border border-black/5';
+    return 'bg-white/40 text-[#191c1a] backdrop-blur-sm border border-white/20';
   };
 
   return (
@@ -37,7 +38,7 @@ const SurahCard: React.FC<SurahCardProps> = ({ surah, theme, onClick }) => {
         </div>
       </div>
       <div className="text-left flex flex-col items-end">
-        <span className="noto-arabic text-2xl font-bold text-[#006c4c] dark:text-[#9cf4c6]">{surah.name_arabic}</span>
+        <span className="noto-arabic text-2xl font-bold" style={{ color: accentColor }}>{surah.name_arabic}</span>
         <p className="text-[10px] opacity-50 mt-1 uppercase tracking-wider">{surah.translated_name.name}</p>
       </div>
     </div>

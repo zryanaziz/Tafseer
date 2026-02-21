@@ -65,5 +65,18 @@ export enum AppTheme {
   EMERALD = 'emerald',
   DARK = 'dark',
   SEPIA = 'sepia',
-  LIGHT = 'light'
+  LIGHT = 'light',
+  OCEAN = 'ocean',
+  NIGHT = 'night',
+  ROSE = 'rose'
+}
+
+export enum AccentColor {
+  EMERALD = '#006c4c',
+  BLUE = '#0061a4',
+  PURPLE = '#6750a4',
+  RED = '#ba1a1a',
+  GOLD = '#725c00',
+  BLACK = '#000000',
+  WHITE = '#ffffff'
 }

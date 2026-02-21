@@ -21,13 +21,17 @@
             --md-sys-color-on-primary: #ffffff;
             --md-sys-color-primary-container: #9cf4c6;
             --md-sys-color-on-primary-container: #002114;
-            --md-sys-color-surface: #fbfdf9;
+            --md-sys-color-surface: transparent;
             --md-sys-color-on-surface: #191c1a;
+            --accent-color: #006c4c;
+            --liquid-color-1: rgba(0, 108, 76, 0.08);
+            --liquid-color-2: rgba(16, 185, 129, 0.05);
+            --bg-gradient: linear-gradient(135deg, #f0f4f2 0%, #e6efeb 100%);
         }
         
         body {
             font-family: 'Noto Sans Arabic', 'Inter', sans-serif;
-            background-color: var(--md-sys-color-surface);
+            background-color: #f0f4f2;
             color: var(--md-sys-color-on-surface);
             -webkit-tap-highlight-color: transparent;
             user-select: none;
@@ -36,6 +40,49 @@
             width: 100vw;
             margin: 0;
             padding: 0;
+            position: relative;
+            transition: background-color 0.5s ease;
+        }
+
+        /* Glass Liquid Background */
+        .liquid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            background: var(--bg-gradient);
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        .liquid-bg::before, .liquid-bg::after {
+            content: '';
+            position: absolute;
+            width: 150vmax;
+            height: 150vmax;
+            top: -25vmax;
+            left: -25vmax;
+            background: radial-gradient(circle, var(--liquid-color-1) 0%, transparent 70%);
+            animation: liquidMove 20s infinite alternate cubic-bezier(0.45, 0, 0.55, 1);
+            border-radius: 40%;
+            transition: background 0.5s ease;
+        }
+
+        .liquid-bg::after {
+            top: auto;
+            left: auto;
+            bottom: -25vmax;
+            right: -25vmax;
+            background: radial-gradient(circle, var(--liquid-color-2) 0%, transparent 70%);
+            animation-delay: -10s;
+            animation-duration: 25s;
+        }
+
+        @keyframes liquidMove {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(10%, 10%) rotate(15deg); }
         }
 
         .arabic-text {
@@ -77,6 +124,7 @@
 <link rel="stylesheet" href="/index.css">
 </head>
 <body>
+    <div class="liquid-bg"></div>
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>
