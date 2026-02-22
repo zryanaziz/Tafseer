@@ -315,14 +315,14 @@ const App: React.FC = () => {
             <input 
               type="range" 
               min="0.5" 
-              max="2.5" 
+              max="3.6" 
               step="0.1" 
               value={fontSize} 
               onChange={(e) => setFontSize(parseFloat(e.target.value))}
               className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: accentColor }}
             />
-            <button onClick={() => setFontSize(prev => Math.min(2.5, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
+            <button onClick={() => setFontSize(prev => Math.min(3.6, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
           </div>
         </div>
       </div>
@@ -562,14 +562,14 @@ const App: React.FC = () => {
                    <input 
                     type="range" 
                     min="0.5" 
-                    max="2.5" 
+                    max="3.6" 
                     step="0.1" 
                     value={fontSize} 
                     onChange={(e) => setFontSize(parseFloat(e.target.value))}
                     className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                   />
                 </div>
-                <button onClick={() => setFontSize(prev => Math.min(2.5, prev + 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Plus size={16} /></button>
+                <button onClick={() => setFontSize(prev => Math.min(3.6, prev + 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Plus size={16} /></button>
               </div>
             )}
           </div>
