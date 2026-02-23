@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dbReady, setDbReady] = useState(false);
   const [isDefaultDb, setIsDefaultDb] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   
   const [theme, setTheme] = useState<AppTheme>(() => (localStorage.getItem('app_theme') as AppTheme) || AppTheme.EMERALD);
   const [accentColor, setAccentColor] = useState<AccentColor>(() => (localStorage.getItem('app_accent_color') as AccentColor) || AccentColor.EMERALD);
@@ -58,6 +59,28 @@ const App: React.FC = () => {
     };
     init();
   }, []);
+
+  // Navigation history management for back button
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (showExitConfirm) {
+        setShowExitConfirm(false);
+      } else if (selectedVerse) {
+        setSelectedVerse(null);
+      } else if (screen !== AppScreen.HOME) {
+        setScreen(AppScreen.HOME);
+      } else {
+        setShowExitConfirm(true);
+      }
+      // Keep the app in the history stack to intercept the next back button
+      window.history.pushState(null, "", "");
+    };
+
+    // Initial push to handle the first back button
+    window.history.pushState(null, "", "");
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [selectedVerse, screen, showExitConfirm]);
 
   useEffect(() => { localStorage.setItem('app_theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('app_accent_color', accentColor); }, [accentColor]);
@@ -334,38 +357,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Database Status Card */}
-      {!isDefaultDb && (
-        <div className={`rounded-[32px] p-8 relative overflow-hidden flex flex-col items-center transition-all shadow-xl ${
-          dbReady 
-            ? (theme === AppTheme.DARK || theme === AppTheme.NIGHT ? 'bg-white/10 border border-white/20' : 'bg-white/80 border border-white/50') 
-            : 'bg-orange-50 text-orange-950 border-2 border-dashed border-orange-200'
-        }`} style={{ color: dbReady ? accentColor : undefined }}>
-          <div className="absolute right-0 bottom-0 opacity-10 translate-y-1/4 translate-x-1/4">
-            <Database size={220} />
-          </div>
-          <h3 className="text-xl font-bold mb-2 text-center">{dbReady ? <CheckCircle2 size={32} className="inline mb-1 mr-2" /> : <FileBox size={32} className="inline mb-1 mr-2 opacity-40" />} SQLite</h3>
-          <p className="text-sm opacity-70 mb-6 text-center max-w-[280px]">
-            {dbReady ? "فایلەکە بە سەرکەوتوویی بارکراوە." : "فایلی تەفسیر باربکە."}
-          </p>
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className={`px-8 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95 text-white`}
-            style={{ backgroundColor: accentColor }}
-          >
-            {dbReady ? "گۆڕینی فایل" : "بارکردنی فایل"}
-            <input type="file" ref={fileInputRef} className="hidden" accept=".db" onChange={handleFileUpload} />
-          </button>
-        </div>
-      )}
-
-      {isDefaultDb && (
-        <div className={`rounded-[32px] p-4 flex items-center justify-center gap-3 border border-emerald-500/20 bg-emerald-500/5`} style={{ color: accentColor }}>
-          <Database size={16} className="opacity-50" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">داتابەیسی جێگیر چالاکە</span>
-        </div>
-      )}
 
       <div id="surah-list-start" className="flex flex-col gap-6 px-2 pt-4">
         <div className="flex items-center justify-between">
@@ -685,6 +676,41 @@ const App: React.FC = () => {
           onPrev={() => navigateVerse(-1)}
           fontSize={fontSize}
         />
+      )}
+
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-xs p-8 rounded-[40px] shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 ${
+            theme === AppTheme.DARK ? 'bg-[#212622] text-white' : 'bg-white text-gray-900'
+          }`}>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold">داخستنی بەرنامە</h3>
+              <p className="text-sm opacity-60">ئایا دڵنیایت لە داخستنی بەرنامەکە؟</p>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowExitConfirm(false)}
+                className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 ${
+                  theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'
+                }`}
+              >
+                نەخێر
+              </button>
+              <button 
+                onClick={() => {
+                  // In most browsers window.close() only works if opened by script
+                  // but we provide the action as requested.
+                  window.close();
+                  setShowExitConfirm(false);
+                }}
+                className="flex-1 py-4 rounded-2xl font-bold text-sm text-white transition-all active:scale-95 shadow-lg"
+                style={{ backgroundColor: accentColor }}
+              >
+                بەڵێ
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );
