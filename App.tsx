@@ -4,7 +4,7 @@ import Layout from './components/Layout';
 import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
-import { initSQLite, loadPersistedDB, getTafseerFromDB } from './services/dbService';
+import { initSQLite, loadPersistedDB, loadDefaultDB, getTafseerFromDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor } from './types';
 import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette } from 'lucide-react';
 
@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbReady, setDbReady] = useState(false);
+  const [isDefaultDb, setIsDefaultDb] = useState(false);
   
   const [theme, setTheme] = useState<AppTheme>(() => (localStorage.getItem('app_theme') as AppTheme) || AppTheme.EMERALD);
   const [accentColor, setAccentColor] = useState<AccentColor>(() => (localStorage.getItem('app_accent_color') as AccentColor) || AccentColor.EMERALD);
@@ -41,7 +42,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      const persisted = await loadPersistedDB();
+      let persisted = await loadPersistedDB();
+      
+      // If no persisted DB, try to load the default permanent one
+      if (!persisted) {
+        persisted = await loadDefaultDB();
+        if (persisted) setIsDefaultDb(true);
+      }
+      
       setDbReady(persisted);
       
       const data = await fetchSurahs();
@@ -328,27 +336,36 @@ const App: React.FC = () => {
       </div>
 
       {/* Database Status Card */}
-      <div className={`rounded-[32px] p-8 relative overflow-hidden flex flex-col items-center transition-all shadow-xl ${
-        dbReady 
-          ? (theme === AppTheme.DARK || theme === AppTheme.NIGHT ? 'bg-white/10 border border-white/20' : 'bg-white/80 border border-white/50') 
-          : 'bg-orange-50 text-orange-950 border-2 border-dashed border-orange-200'
-      }`} style={{ color: dbReady ? accentColor : undefined }}>
-        <div className="absolute right-0 bottom-0 opacity-10 translate-y-1/4 translate-x-1/4">
-          <Database size={220} />
+      {!isDefaultDb && (
+        <div className={`rounded-[32px] p-8 relative overflow-hidden flex flex-col items-center transition-all shadow-xl ${
+          dbReady 
+            ? (theme === AppTheme.DARK || theme === AppTheme.NIGHT ? 'bg-white/10 border border-white/20' : 'bg-white/80 border border-white/50') 
+            : 'bg-orange-50 text-orange-950 border-2 border-dashed border-orange-200'
+        }`} style={{ color: dbReady ? accentColor : undefined }}>
+          <div className="absolute right-0 bottom-0 opacity-10 translate-y-1/4 translate-x-1/4">
+            <Database size={220} />
+          </div>
+          <h3 className="text-xl font-bold mb-2 text-center">{dbReady ? <CheckCircle2 size={32} className="inline mb-1 mr-2" /> : <FileBox size={32} className="inline mb-1 mr-2 opacity-40" />} SQLite</h3>
+          <p className="text-sm opacity-70 mb-6 text-center max-w-[280px]">
+            {dbReady ? "فایلەکە بە سەرکەوتوویی بارکراوە." : "فایلی تەفسیر باربکە."}
+          </p>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className={`px-8 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95 text-white`}
+            style={{ backgroundColor: accentColor }}
+          >
+            {dbReady ? "گۆڕینی فایل" : "بارکردنی فایل"}
+            <input type="file" ref={fileInputRef} className="hidden" accept=".db" onChange={handleFileUpload} />
+          </button>
         </div>
-        <h3 className="text-xl font-bold mb-2 text-center">{dbReady ? <CheckCircle2 size={32} className="inline mb-1 mr-2" /> : <FileBox size={32} className="inline mb-1 mr-2 opacity-40" />} SQLite</h3>
-        <p className="text-sm opacity-70 mb-6 text-center max-w-[280px]">
-          {dbReady ? "فایلەکە بە سەرکەوتوویی بارکراوە." : "فایلی تەفسیر باربکە."}
-        </p>
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          className={`px-8 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95 text-white`}
-          style={{ backgroundColor: accentColor }}
-        >
-          {dbReady ? "گۆڕینی فایل" : "بارکردنی فایل"}
-          <input type="file" ref={fileInputRef} className="hidden" accept=".db" onChange={handleFileUpload} />
-        </button>
-      </div>
+      )}
+
+      {isDefaultDb && (
+        <div className={`rounded-[32px] p-4 flex items-center justify-center gap-3 border border-emerald-500/20 bg-emerald-500/5`} style={{ color: accentColor }}>
+          <Database size={16} className="opacity-50" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">داتابەیسی جێگیر چالاکە</span>
+        </div>
+      )}
 
       <div id="surah-list-start" className="flex flex-col gap-6 px-2 pt-4">
         <div className="flex items-center justify-between">

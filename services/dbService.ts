@@ -62,6 +62,32 @@ export const initSQLite = async (file: File): Promise<{success: boolean, error?:
 };
 
 /**
+ * Load a default database file from the server (e.g., /tafseer.db)
+ */
+export const loadDefaultDB = async (): Promise<boolean> => {
+  try {
+    const response = await fetch('/tafseer.db');
+    if (!response.ok) return false;
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const uints = new Uint8Array(arrayBuffer);
+
+    // @ts-ignore
+    const SQL = await window.initSqlJs({
+      locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
+    });
+    
+    databaseInstance = new SQL.Database(uints);
+    // Also save it to IndexedDB so it's faster next time
+    await saveToIndexedDB(uints);
+    return true;
+  } catch (err) {
+    console.error("Failed to load default DB:", err);
+    return false;
+  }
+};
+
+/**
  * Load the database from IndexedDB on app start
  */
 export const loadPersistedDB = async (): Promise<boolean> => {
