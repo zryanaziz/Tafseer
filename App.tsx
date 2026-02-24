@@ -6,11 +6,12 @@ import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadPersistedDB, loadDefaultDB, getTafseerFromDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1 } from 'lucide-react';
-import { AUDIO_BASE_URL } from './constants';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, WifiOff, User } from 'lucide-react';
+import { AUDIO_BASE_URL, OFFLINE_AUDIO_BASE_URL, RECITERS } from './constants';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 type PlaybackMode = 'continuous' | 'repeat' | 'once';
+type AudioSource = 'offline' | 'online';
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
@@ -37,6 +38,8 @@ const App: React.FC = () => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('continuous');
+  const [audioSource, setAudioSource] = useState<AudioSource>(() => (localStorage.getItem('app_audio_source') as AudioSource) || 'offline');
+  const [selectedReciterId, setSelectedReciterId] = useState<string>(() => localStorage.getItem('app_selected_reciter') || RECITERS[0].id);
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -91,6 +94,8 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('app_accent_color', accentColor); }, [accentColor]);
   useEffect(() => { localStorage.setItem('app_view_mode', viewMode); }, [viewMode]);
   useEffect(() => { localStorage.setItem('app_font_size', fontSize.toString()); }, [fontSize]);
+  useEffect(() => { localStorage.setItem('app_audio_source', audioSource); }, [audioSource]);
+  useEffect(() => { localStorage.setItem('app_selected_reciter', selectedReciterId); }, [selectedReciterId]);
   useEffect(() => { 
     if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
   }, [lastRead]);
@@ -315,9 +320,16 @@ const App: React.FC = () => {
     const [s, v] = playingVerseKey.split(':');
     const sss = s.padStart(3, '0');
     const aaa = v.padStart(3, '0');
-    const url = `${AUDIO_BASE_URL}${sss}${aaa}.mp3`;
+    
+    let url = "";
+    if (audioSource === 'online') {
+      const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
+      url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
+    } else {
+      url = `${OFFLINE_AUDIO_BASE_URL}${sss}${aaa}.mp3`;
+    }
 
-    if (audioRef.current.src !== url) {
+    if (audioRef.current.src !== url && !audioRef.current.src.endsWith(url)) {
       audioRef.current.src = url;
       audioRef.current.play().catch(err => {
         console.error("Playback error:", err);
@@ -629,6 +641,37 @@ const App: React.FC = () => {
                 {playbackMode === 'repeat' && <Repeat1 size={20} />}
                 {playbackMode === 'once' && <Play size={20} className="opacity-40" />}
               </button>
+
+              {/* Audio Source Toggler */}
+              <button 
+                onClick={() => setAudioSource(prev => prev === 'offline' ? 'online' : 'offline')}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  audioSource === 'offline' 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                }`}
+                title={audioSource === 'offline' ? "ئۆفلاین" : "ئۆنلاین"}
+              >
+                {audioSource === 'offline' ? <WifiOff size={20} /> : <Wifi size={20} />}
+              </button>
+
+              {/* Reciter Selector (Online only) */}
+              {audioSource === 'online' && (
+                <div className="relative flex-1 max-w-[150px]">
+                  <select 
+                    value={selectedReciterId} 
+                    onChange={(e) => setSelectedReciterId(e.target.value)}
+                    className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-[10px] text-center focus:outline-none transition-all pr-8 ${
+                      theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                    }`}
+                  >
+                    {RECITERS.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><User size={14} /></div>
+                </div>
+              )}
 
               {/* Toggler for In-Surah Font Settings */}
               <button 

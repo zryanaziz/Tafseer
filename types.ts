@@ -22,6 +22,12 @@ export interface Verse {
   };
 }
 
+export interface Reciter {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export interface LastRead {
   surahId: number;
   surahName: string;
