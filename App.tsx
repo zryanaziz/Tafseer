@@ -567,7 +567,7 @@ const App: React.FC = () => {
                 theme === AppTheme.DARK ? 'bg-[#191c1a]/80 border-gray-800' : 'bg-white/80 border-gray-100'
               } ${isHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}
             >
-              <div className="p-3 flex gap-2 items-center justify-center w-full">
+              <div className="p-3 flex gap-2 items-center justify-center w-full overflow-x-auto no-scrollbar">
                 {/* - Button to hide header */}
                 <button 
                   onClick={() => setIsHeaderVisible(false)}
@@ -672,6 +672,25 @@ const App: React.FC = () => {
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><User size={14} /></div>
                 </div>
               )}
+
+              {/* View Mode Cycle Button */}
+              <button 
+                onClick={() => setViewMode(prev => {
+                  if (prev === 'both') return 'quran';
+                  if (prev === 'quran') return 'tafseer';
+                  return 'both';
+                })}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  viewMode !== 'both' 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                }`}
+                title={viewMode === 'both' ? "هەردووکی" : viewMode === 'quran' ? "ئایەت" : "تەفسیر"}
+              >
+                {viewMode === 'both' && <LayoutIcon size={20} />}
+                {viewMode === 'quran' && <AlignRight size={20} />}
+                {viewMode === 'tafseer' && <BookOpen size={20} />}
+              </button>
 
               {/* Toggler for In-Surah Font Settings */}
               <button 
