@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause } from 'lucide-react';
 import { Verse, AppTheme, AccentColor } from '../types';
 import { getTafseerFromDB } from '../services/dbService';
 
@@ -16,10 +16,12 @@ interface TafseerOverlayProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   fontSize: number;
+  isPlaying: boolean;
+  onToggleAudio: () => void;
 }
 
 const TafseerOverlay: React.FC<TafseerOverlayProps> = ({ 
-  verse, onClose, onNext, onPrev, theme, accentColor = AccentColor.EMERALD, viewMode, onViewModeChange, fontSize
+  verse, onClose, onNext, onPrev, theme, accentColor = AccentColor.EMERALD, viewMode, onViewModeChange, fontSize, isPlaying, onToggleAudio
 }) => {
   const [dbContent, setDbContent] = useState<string | null>(null);
 
@@ -64,7 +66,15 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           <div className="text-center">
             <h2 className="font-bold text-lg leading-tight">ئایەتی {verse.verse_key}</h2>
           </div>
-          <div className="w-10 flex justify-end">
+          <div className="flex items-center gap-2">
+             <button 
+               onClick={onToggleAudio}
+               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                 isPlaying ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-700'
+               }`}
+             >
+               {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+             </button>
              <Database size={20} className="opacity-40" />
           </div>
         </div>

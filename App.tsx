@@ -6,9 +6,11 @@ import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadPersistedDB, loadDefaultDB, getTafseerFromDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette } from 'lucide-react';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1 } from 'lucide-react';
+import { AUDIO_BASE_URL } from './constants';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
+type PlaybackMode = 'continuous' | 'repeat' | 'once';
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
@@ -33,7 +35,10 @@ const App: React.FC = () => {
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
   const [jumpToAyah, setJumpToAyah] = useState<string>("");
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('continuous');
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const verseRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -257,6 +262,77 @@ const App: React.FC = () => {
       await handleSurahClick(nextSurah);
     }
   };
+
+  const toggleAudio = (verseKey: string) => {
+    if (playingVerseKey === verseKey) {
+      audioRef.current?.pause();
+      setPlayingVerseKey(null);
+    } else {
+      setPlayingVerseKey(verseKey);
+    }
+  };
+
+  // Audio effect to handle playing and auto-next
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+
+    const audio = audioRef.current;
+
+    const handleEnded = () => {
+      setPlayingVerseKey(currentKey => {
+        if (!currentKey) return null;
+        
+        if (playbackMode === 'repeat') {
+          // Re-trigger playback of the same verse
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+          }
+          return currentKey;
+        }
+
+        if (playbackMode === 'once') {
+          return null;
+        }
+
+        const idx = verses.findIndex(v => v.verse_key === currentKey);
+        if (idx !== -1 && idx < verses.length - 1) {
+          return verses[idx + 1].verse_key;
+        }
+        return null;
+      });
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, [verses, playbackMode]);
+
+  useEffect(() => {
+    if (!playingVerseKey || !audioRef.current) return;
+
+    const [s, v] = playingVerseKey.split(':');
+    const sss = s.padStart(3, '0');
+    const aaa = v.padStart(3, '0');
+    const url = `${AUDIO_BASE_URL}${sss}${aaa}.mp3`;
+
+    if (audioRef.current.src !== url) {
+      audioRef.current.src = url;
+      audioRef.current.play().catch(err => {
+        console.error("Playback error:", err);
+        setPlayingVerseKey(null);
+      });
+    } else if (audioRef.current.paused) {
+      audioRef.current.play().catch(() => {});
+    }
+
+    // Scroll to the playing verse
+    const element = verseRefs.current[playingVerseKey];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [playingVerseKey]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -535,6 +611,25 @@ const App: React.FC = () => {
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={14} /></div>
               </div>
 
+              {/* Playback Mode Toggler */}
+              <button 
+                onClick={() => setPlaybackMode(prev => {
+                  if (prev === 'continuous') return 'repeat';
+                  if (prev === 'repeat') return 'once';
+                  return 'continuous';
+                })}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  playbackMode !== 'once' 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                }`}
+                title={playbackMode === 'continuous' ? "بەردەوام" : playbackMode === 'repeat' ? "دووبارەکردنەوە" : "تەنها یەکجار"}
+              >
+                {playbackMode === 'continuous' && <Repeat size={20} />}
+                {playbackMode === 'repeat' && <Repeat1 size={20} />}
+                {playbackMode === 'once' && <Play size={20} className="opacity-40" />}
+              </button>
+
               {/* Toggler for In-Surah Font Settings */}
               <button 
                 onClick={() => {
@@ -597,7 +692,17 @@ const App: React.FC = () => {
                   className={`p-6 border-b transition-colors scroll-mt-32 ${theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <div className="flex justify-between items-center mb-6">
-                    <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
+                      <button 
+                        onClick={() => toggleAudio(v.verse_key)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                          playingVerseKey === v.verse_key ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {playingVerseKey === v.verse_key ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                      </button>
+                    </div>
                     <button onClick={() => setSelectedVerse(v)} className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-all" style={{ backgroundColor: accentColor }}>
                       <Database size={16} />
                     </button>
@@ -675,6 +780,8 @@ const App: React.FC = () => {
           onNext={() => navigateVerse(1)}
           onPrev={() => navigateVerse(-1)}
           fontSize={fontSize}
+          isPlaying={playingVerseKey === selectedVerse.verse_key}
+          onToggleAudio={() => toggleAudio(selectedVerse.verse_key)}
         />
       )}
 
