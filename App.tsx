@@ -815,7 +815,7 @@ const App: React.FC = () => {
                       {tafseerFullText ? (
                         <div 
                           className="leading-loose whitespace-pre-wrap select-text"
-                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor }}
+                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
                         >
                           {tafseerFullText}
                         </div>

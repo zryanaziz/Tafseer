@@ -143,7 +143,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
               {dbContent ? (
                 <div 
                   className="whitespace-pre-wrap select-text"
-                  style={{ fontSize: `${18 * fontSize}px`, color: accentColor }}
+                  style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
                 >{dbContent}</div>
               ) : (
                 <div className="flex flex-col items-center gap-4 opacity-50 text-center" style={{ color: accentColor }}>
