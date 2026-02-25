@@ -427,21 +427,35 @@ const App: React.FC = () => {
             <h4 className="text-sm font-bold flex items-center gap-2 opacity-60">
               <Type size={16} /> قەبارەی دەق
             </h4>
-            <span className="text-lg font-bold px-3 py-1 rounded-xl text-white shadow-md" style={{ backgroundColor: accentColor }}>{Math.round(fontSize * 100)}%</span>
+            <div className="flex items-center gap-1">
+              <input 
+                type="number" 
+                min="50" 
+                max="720" 
+                value={Math.round(fontSize * 100)} 
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setFontSize(val / 100);
+                }}
+                className="w-16 text-center text-lg font-bold px-2 py-1 rounded-xl text-white shadow-md focus:outline-none"
+                style={{ backgroundColor: accentColor }}
+              />
+              <span className="font-bold opacity-60">%</span>
+            </div>
           </div>
           <div className="px-2 flex items-center gap-4">
             <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>-</button>
             <input 
               type="range" 
               min="0.5" 
-              max="3.6" 
+              max="7.2" 
               step="0.1" 
               value={fontSize} 
               onChange={(e) => setFontSize(parseFloat(e.target.value))}
               className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: accentColor }}
             />
-            <button onClick={() => setFontSize(prev => Math.min(3.6, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
+            <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
           </div>
         </div>
       </div>
@@ -719,22 +733,35 @@ const App: React.FC = () => {
               }`}>
                 <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Minus size={16} /></button>
                 <div className="flex-1 flex flex-col gap-1">
-                   <div className="flex justify-between text-[10px] font-bold opacity-50">
+                   <div className="flex justify-between items-center text-[10px] font-bold opacity-50">
                       <span>بچووک</span>
-                      <span className="text-emerald-600 font-bold">{Math.round(fontSize * 100)}%</span>
+                      <div className="flex items-center gap-1">
+                        <input 
+                          type="number" 
+                          min="50" 
+                          max="720" 
+                          value={Math.round(fontSize * 100)} 
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val)) setFontSize(val / 100);
+                          }}
+                          className="w-12 text-center bg-emerald-600 text-white rounded-md focus:outline-none"
+                        />
+                        <span>%</span>
+                      </div>
                       <span>گەورە</span>
                    </div>
                    <input 
                     type="range" 
                     min="0.5" 
-                    max="3.6" 
+                    max="7.2" 
                     step="0.1" 
                     value={fontSize} 
                     onChange={(e) => setFontSize(parseFloat(e.target.value))}
                     className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                   />
                 </div>
-                <button onClick={() => setFontSize(prev => Math.min(3.6, prev + 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Plus size={16} /></button>
+                <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Plus size={16} /></button>
               </div>
             )}
           </div>
