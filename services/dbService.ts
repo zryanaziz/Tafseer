@@ -120,6 +120,33 @@ export const getTafseerFromDB = (surahId: number, verseId: number): string | nul
 
 export const isDBLoaded = () => !!databaseInstance;
 
+export const getOtherTafseersFromDB = (surahId: number, verseId: number): Record<string, string | null> => {
+  if (!databaseInstance) return {};
+  const results: Record<string, string | null> = {};
+  const tables = ['tafseer2', 'tafseer3', 'tafseer4', 'tafseer5', 'tafseer6'];
+  
+  for (const table of tables) {
+    try {
+      // Check if table exists first to avoid crashing if the user hasn't uploaded a DB with these tables yet
+      const checkTable = databaseInstance.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      if (checkTable.step()) {
+        checkTable.free();
+        const stmt = databaseInstance.prepare(`SELECT text FROM ${table} WHERE surah_id = :sid AND verse_id = :vid LIMIT 1`);
+        const result = stmt.getAsObject({ ":sid": surahId, ":vid": verseId });
+        stmt.free();
+        results[table] = (result.text as string) || null;
+      } else {
+        checkTable.free();
+        results[table] = null;
+      }
+    } catch (err) {
+      console.error(`Query Error for ${table}:`, err);
+      results[table] = null;
+    }
+  }
+  return results;
+};
+
 function saveToIndexedDB(data: Uint8Array): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_STORE_NAME, 1);
