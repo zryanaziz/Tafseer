@@ -2,6 +2,8 @@
 // This service handles the binary .db file and queries it using sql.js
 // It also persists the database to IndexedDB so it survives page refreshes.
 
+import initSqlJs from 'sql.js';
+
 let databaseInstance: any = null;
 const DB_STORE_NAME = 'tafseer_db_store';
 const DB_KEY = 'current_sqlite_db';
@@ -16,14 +18,8 @@ export const initSQLite = async (file: File): Promise<{success: boolean, error?:
       try {
         const uints = new Uint8Array(e.target?.result as ArrayBuffer);
         
-        // @ts-ignore
-        if (!window.initSqlJs) {
-          return resolve({success: false, error: "بەرنامەی SQLite بارنەکراوە. تکایە لاپەڕەکە نوێ بکەرەوە."});
-        }
-
-        // @ts-ignore
-        const SQL = await window.initSqlJs({
-          locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
+        const SQL = await initSqlJs({
+          locateFile: (file: string) => `/sql-wasm.wasm`
         });
         
         const db = new SQL.Database(uints);
@@ -72,9 +68,8 @@ export const loadDefaultDB = async (): Promise<boolean> => {
     const arrayBuffer = await response.arrayBuffer();
     const uints = new Uint8Array(arrayBuffer);
 
-    // @ts-ignore
-    const SQL = await window.initSqlJs({
-      locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
+    const SQL = await initSqlJs({
+      locateFile: (file: string) => `/sql-wasm.wasm`
     });
     
     databaseInstance = new SQL.Database(uints);
@@ -95,9 +90,8 @@ export const loadPersistedDB = async (): Promise<boolean> => {
     const uints = await getFromIndexedDB();
     if (!uints) return false;
 
-    // @ts-ignore
-    const SQL = await window.initSqlJs({
-      locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
+    const SQL = await initSqlJs({
+      locateFile: (file: string) => `/sql-wasm.wasm`
     });
     
     databaseInstance = new SQL.Database(uints);

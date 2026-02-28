@@ -14,17 +14,35 @@ const handleResponse = async (response: Response) => {
 };
 
 export const fetchSurahs = async (): Promise<Surah[]> => {
-  const response = await fetch(`${QURAN_API_BASE}/chapters?language=en`);
-  const data = await handleResponse(response);
-  return data.chapters;
+  const cacheKey = 'quran_surahs_cache';
+  
+  try {
+    const response = await fetch(`${QURAN_API_BASE}/chapters?language=en`);
+    const data = await handleResponse(response);
+    localStorage.setItem(cacheKey, JSON.stringify(data.chapters));
+    return data.chapters;
+  } catch (err) {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+    throw err;
+  }
 };
 
 export const fetchSurahVerses = async (surahId: number, page: number = 1): Promise<Verse[]> => {
-  const response = await fetch(
-    `${QURAN_API_BASE}/verses/by_chapter/${surahId}?language=en&words=false&translations=${TRANSLATION_ID}&fields=text_uthmani&per_page=300&page=${page}`
-  );
-  const data = await handleResponse(response);
-  return data.verses;
+  const cacheKey = `quran_verses_cache_${surahId}_${page}`;
+  
+  try {
+    const response = await fetch(
+      `${QURAN_API_BASE}/verses/by_chapter/${surahId}?language=en&words=false&translations=${TRANSLATION_ID}&fields=text_uthmani&per_page=300&page=${page}`
+    );
+    const data = await handleResponse(response);
+    localStorage.setItem(cacheKey, JSON.stringify(data.verses));
+    return data.verses;
+  } catch (err) {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+    throw err;
+  }
 };
 
 export const fetchTafseer = async (verseKey: string, tafseerId: number): Promise<Tafseer> => {
