@@ -82,70 +82,6 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           </div>
         </div>
 
-        {showTafseerSelector && (
-          <div 
-            className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
-            onClick={() => setShowTafseerSelector(false)}
-          >
-            <div 
-              className={`absolute bottom-0 left-0 right-0 p-8 rounded-t-[40px] shadow-2xl animate-in slide-in-from-bottom duration-500 ${
-                isDarkTheme ? 'bg-[#191c1a] border-t border-white/5' : 'bg-white border-t border-black/5'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1.5 bg-gray-400/20 rounded-full mx-auto mb-8"></div>
-              
-              <div className="flex items-center justify-between mb-8">
-                <div className="text-right">
-                  <h3 className="text-xl font-bold">هەڵبژاردنی تەفسیر</h3>
-                  <p className="text-xs opacity-50 mt-1">سەرچاوەی تەفسیرەکە بگۆڕە</p>
-                </div>
-                <button 
-                  onClick={() => setShowTafseerSelector(false)}
-                  className={`p-3 rounded-full transition-all ${
-                    isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'
-                  }`}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
-                {availableTafseerFiles.map(file => (
-                  <button
-                    key={file.id}
-                    onClick={() => {
-                      onSwitchTafseerFile(file.id);
-                      setShowTafseerSelector(false);
-                    }}
-                    className={`px-6 py-5 rounded-3xl text-right font-bold text-sm transition-all flex items-center justify-between group active:scale-[0.98] ${
-                      activeTafseerFile === file.id 
-                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
-                        : (isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100')
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      {activeTafseerFile === file.id ? (
-                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                          <CheckCircle2 size={16} className="text-white" />
-                        </div>
-                      ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-current opacity-10 group-hover:opacity-30 transition-all"></div>
-                      )}
-                      <span className="text-base">{file.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              
-              <div className="mt-8 pt-6 border-t border-black/5 flex items-center justify-center gap-2 opacity-30">
-                <Database size={12} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em]">SQLite Database Engine</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* View Mode Switcher */}
         <div className="flex flex-col gap-3 w-full max-w-[320px] self-center">
           <div className={`flex p-1 rounded-2xl ${
@@ -261,6 +197,70 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           داهاتوو <ChevronLeft size={20} />
         </button>
       </footer>
+
+      {showTafseerSelector && (
+        <div 
+          className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setShowTafseerSelector(false)}
+        >
+          <div 
+            className={`absolute bottom-0 left-0 right-0 p-8 rounded-t-[40px] shadow-2xl animate-in slide-in-from-bottom duration-500 ${
+              isDarkTheme ? 'bg-[#191c1a] border-t border-white/5' : 'bg-white border-t border-black/5'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1.5 bg-gray-400/20 rounded-full mx-auto mb-8"></div>
+            
+            <div className="flex items-center justify-between mb-8">
+              <div className="text-right">
+                <h3 className="text-xl font-bold">هەڵبژاردنی تەفسیر</h3>
+                <p className="text-xs opacity-50 mt-1">سەرچاوەی تەفسیرەکە بگۆڕە</p>
+              </div>
+              <button 
+                onClick={() => setShowTafseerSelector(false)}
+                className={`p-3 rounded-full transition-all ${
+                  isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'
+                }`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
+              {availableTafseerFiles.map(file => (
+                <button
+                  key={file.id}
+                  onClick={() => {
+                    onSwitchTafseerFile(file.id);
+                    setShowTafseerSelector(false);
+                  }}
+                  className={`px-6 py-5 rounded-3xl text-right font-bold text-sm transition-all flex items-center justify-between group active:scale-[0.98] ${
+                    activeTafseerFile === file.id 
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
+                      : (isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100')
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    {activeTafseerFile === file.id ? (
+                      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                        <CheckCircle2 size={16} className="text-white" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full border-2 border-current opacity-10 group-hover:opacity-30 transition-all"></div>
+                    )}
+                    <span className="text-base">{file.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-8 pt-6 border-t border-black/5 flex items-center justify-center gap-2 opacity-30">
+              <Database size={12} />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em]">SQLite Database Engine</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

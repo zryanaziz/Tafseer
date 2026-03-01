@@ -92,6 +92,8 @@ const App: React.FC = () => {
       if (tables.length > 0) {
         setActiveTafseer(tables[0]);
       }
+    } else {
+      alert(`ناتوانرێت فایلی ${fileName} بخوێندرێتەوە. دڵنیابە لەوەی فایلەکە لە فۆڵدەری public بوونی هەیە.`);
     }
     setLoading(false);
   };
