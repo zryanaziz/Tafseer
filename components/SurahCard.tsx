@@ -10,12 +10,10 @@ interface SurahCardProps {
 }
 
 const SurahCard: React.FC<SurahCardProps> = ({ surah, theme, accentColor = AccentColor.EMERALD, onClick }) => {
-  const isDark = theme === AppTheme.DARK || theme === AppTheme.NIGHT;
-  const isSepia = theme === AppTheme.SEPIA;
+  const isDark = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
 
   const getCardBg = () => {
     if (isDark) return 'bg-[#212622]/40 text-[#e1e3df] backdrop-blur-sm border border-white/5';
-    if (isSepia) return 'bg-[#fdf3e7]/40 text-[#504538] backdrop-blur-sm border border-black/5';
     return 'bg-white/40 text-[#191c1a] backdrop-blur-sm border border-white/20';
   };
 

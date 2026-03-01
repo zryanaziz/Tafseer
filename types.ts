@@ -74,15 +74,7 @@ export enum AppScreen {
   AI_CHAT = 'ai_chat'
 }
 
-export enum AppTheme {
-  EMERALD = 'emerald',
-  DARK = 'dark',
-  SEPIA = 'sepia',
-  LIGHT = 'light',
-  OCEAN = 'ocean',
-  NIGHT = 'night',
-  ROSE = 'rose'
-}
+export type AppTheme = string;
 
 export enum AccentColor {
   EMERALD = '#006c4c',

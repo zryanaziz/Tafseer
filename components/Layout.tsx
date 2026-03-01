@@ -23,31 +23,19 @@ const Layout: React.FC<LayoutProps> = ({
   title,
   showBack,
   onBack,
-  theme = AppTheme.EMERALD,
+  theme = '#f0f4f2',
   accentColor = AccentColor.EMERALD,
   hideNav = false,
   hideHeader = false
 }) => {
+  const isDarkTheme = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
+
   const getHeaderStyle = () => {
-    switch(theme) {
-      case AppTheme.DARK: return 'bg-[#191c1a]/60 text-[#e1e3df] border-b border-[#404943] backdrop-blur-lg';
-      case AppTheme.NIGHT: return 'bg-[#1c1b1f]/60 text-[#e6e1e5] border-b border-[#404943] backdrop-blur-lg';
-      case AppTheme.OCEAN: return 'bg-[#e1f5fe]/60 text-[#001d33] border-b border-[#b3e5fc] backdrop-blur-lg';
-      case AppTheme.ROSE: return 'bg-[#fff1f2]/60 text-[#270001] border-b border-[#ffe4e6] backdrop-blur-lg';
-      case AppTheme.SEPIA: return 'bg-[#fdf3e7]/60 text-[#504538] border-b border-[#e9ddd0] backdrop-blur-lg';
-      default: return 'bg-[#fbfdf9]/60 text-[#191c1a] border-b border-[#dce5dd] backdrop-blur-lg';
-    }
+    return `backdrop-blur-lg border-b ${isDarkTheme ? 'bg-black/60 text-[#e1e3df] border-[#404943]' : 'bg-white/60 text-[#191c1a] border-[#dce5dd]'}`;
   };
 
   const getNavStyle = () => {
-    switch(theme) {
-      case AppTheme.DARK: return 'bg-[#191c1a]/60 border-t border-[#404943] backdrop-blur-lg';
-      case AppTheme.NIGHT: return 'bg-[#1c1b1f]/60 border-t border-[#404943] backdrop-blur-lg';
-      case AppTheme.OCEAN: return 'bg-[#e1f5fe]/60 border-t border-[#b3e5fc] backdrop-blur-lg';
-      case AppTheme.ROSE: return 'bg-[#fff1f2]/60 border-t border-[#ffe4e6] backdrop-blur-lg';
-      case AppTheme.SEPIA: return 'bg-[#fdf3e7]/60 border-t border-[#e9ddd0] backdrop-blur-lg';
-      default: return 'bg-[#fbfdf9]/60 border-t border-[#dce5dd] backdrop-blur-lg';
-    }
+    return `backdrop-blur-lg border-t ${isDarkTheme ? 'bg-black/60 border-[#404943]' : 'bg-white/60 border-[#dce5dd]'}`;
   };
 
   return (
@@ -108,7 +96,7 @@ const Layout: React.FC<LayoutProps> = ({
 };
 
 const NavItem: React.FC<{ icon: React.ReactNode, label: string, active: boolean, onClick: () => void, theme: AppTheme, accentColor: AccentColor }> = ({ icon, label, active, onClick, theme, accentColor }) => {
-  const isDark = theme === AppTheme.DARK || theme === AppTheme.NIGHT;
+  const isDark = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
   
   return (
     <button 

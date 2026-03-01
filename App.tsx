@@ -4,14 +4,23 @@ import Layout from './components/Layout';
 import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
-import { initSQLite, loadPersistedDB, loadDefaultDB, getTafseerFromDB } from './services/dbService';
+import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, WifiOff, User, Bookmark as BookmarkIcon, Trash2 } from 'lucide-react';
-import { AUDIO_BASE_URL, OFFLINE_AUDIO_BASE_URL, RECITERS } from './constants';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen } from 'lucide-react';
+import { AUDIO_BASE_URL, RECITERS } from './constants';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 type PlaybackMode = 'continuous' | 'repeat' | 'once';
 type AudioSource = 'offline' | 'online';
+
+const TAFSEER_FILES = [
+  { id: 'tafseer.db', name: 'تەفسیری تەوحیدی' },
+  { id: 'tafseer2.db', name: 'تەفسیری تەوحیدی بە تەواوی' },
+  { id: 'tafseer3.db', name: 'تەفسیری مویەسیر' },
+  { id: 'tafseer4.db', name: 'تەفسیری ڕێبەر' },
+  { id: 'tafseer5.db', name: 'تەفسیری مخطصر' },
+  { id: 'tafseer6.db', name: 'رۆشن' }
+];
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>(AppScreen.HOME);
@@ -21,10 +30,13 @@ const App: React.FC = () => {
   const [isDefaultDb, setIsDefaultDb] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   
-  const [theme, setTheme] = useState<AppTheme>(() => (localStorage.getItem('app_theme') as AppTheme) || AppTheme.EMERALD);
+  const [theme, setTheme] = useState<AppTheme>(() => localStorage.getItem('app_theme') || '#f0f4f2');
   const [accentColor, setAccentColor] = useState<AccentColor>(() => (localStorage.getItem('app_accent_color') as AccentColor) || AccentColor.EMERALD);
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('app_view_mode') as ViewMode) || 'both');
   const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('app_font_size')) || 1);
+  const [availableTafseers, setAvailableTafseers] = useState<string[]>([]);
+  const [activeTafseerFile, setActiveTafseerFile] = useState<string>(() => localStorage.getItem('app_active_tafseer_file') || TAFSEER_FILES[0].id);
+  const [activeTafseer, setActiveTafseer] = useState<string>(() => localStorage.getItem('app_active_tafseer') || 'tafseer');
   const [showInSurahFontSettings, setShowInSurahFontSettings] = useState(false);
   const [lastRead, setLastRead] = useState<LastRead | null>(() => {
     const saved = localStorage.getItem('app_last_read');
@@ -42,7 +54,6 @@ const App: React.FC = () => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('continuous');
-  const [audioSource, setAudioSource] = useState<AudioSource>(() => (localStorage.getItem('app_audio_source') as AudioSource) || 'offline');
   const [selectedReciterId, setSelectedReciterId] = useState<string>(() => localStorage.getItem('app_selected_reciter') || RECITERS[0].id);
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -52,18 +63,16 @@ const App: React.FC = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastScrollY = useRef<number>(0);
 
+  const isDark = (t: string) => t.startsWith('#0') || t.startsWith('#1') || t.startsWith('#2');
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      let persisted = await loadPersistedDB();
-      
-      // If no persisted DB, try to load the default permanent one
-      if (!persisted) {
-        persisted = await loadDefaultDB();
-        if (persisted) setIsDefaultDb(true);
+      const loaded = await loadTafseerDB(activeTafseerFile);
+      setDbReady(loaded);
+      if (loaded) {
+        setAvailableTafseers(getAvailableTafseers());
       }
-      
-      setDbReady(persisted);
       
       const data = await fetchSurahs();
       setSurahs(data);
@@ -71,6 +80,21 @@ const App: React.FC = () => {
     };
     init();
   }, []);
+
+  const switchTafseerFile = async (fileName: string) => {
+    setLoading(true);
+    const loaded = await loadTafseerDB(fileName);
+    if (loaded) {
+      setActiveTafseerFile(fileName);
+      localStorage.setItem('app_active_tafseer_file', fileName);
+      const tables = getAvailableTafseers();
+      setAvailableTafseers(tables);
+      if (tables.length > 0) {
+        setActiveTafseer(tables[0]);
+      }
+    }
+    setLoading(false);
+  };
 
   // Navigation history management for back button
   useEffect(() => {
@@ -98,7 +122,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('app_accent_color', accentColor); }, [accentColor]);
   useEffect(() => { localStorage.setItem('app_view_mode', viewMode); }, [viewMode]);
   useEffect(() => { localStorage.setItem('app_font_size', fontSize.toString()); }, [fontSize]);
-  useEffect(() => { localStorage.setItem('app_audio_source', audioSource); }, [audioSource]);
+  useEffect(() => { localStorage.setItem('app_active_tafseer', activeTafseer); }, [activeTafseer]);
   useEffect(() => { localStorage.setItem('app_selected_reciter', selectedReciterId); }, [selectedReciterId]);
   useEffect(() => { 
     if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
@@ -112,48 +136,23 @@ const App: React.FC = () => {
     const root = document.documentElement;
     root.style.setProperty('--accent-color', accentColor);
     
-    let bg1 = 'rgba(0, 108, 76, 0.08)';
-    let bg2 = 'rgba(16, 185, 129, 0.05)';
-    let gradient = 'linear-gradient(135deg, #f0f4f2 0%, #e6efeb 100%)';
-    let bodyBg = '#f0f4f2';
+    // Default values for custom theme
+    let bg1 = 'rgba(0, 0, 0, 0.05)';
+    let bg2 = 'rgba(0, 0, 0, 0.02)';
+    let gradient = `linear-gradient(135deg, ${theme} 0%, ${theme} 100%)`;
+    let bodyBg = theme;
     let onSurface = '#191c1a';
 
-    switch(theme) {
-      case AppTheme.DARK:
-        bg1 = 'rgba(0, 255, 150, 0.05)';
-        bg2 = 'rgba(0, 100, 255, 0.03)';
-        gradient = 'linear-gradient(135deg, #0a0c0b 0%, #141a17 100%)';
-        bodyBg = '#0a0c0b';
-        onSurface = '#e1e3df';
-        break;
-      case AppTheme.SEPIA:
-        bg1 = 'rgba(114, 92, 0, 0.08)';
-        bg2 = 'rgba(186, 26, 26, 0.03)';
-        gradient = 'linear-gradient(135deg, #fdf3e7 0%, #f5e8d9 100%)';
-        bodyBg = '#fdf3e7';
-        onSurface = '#504538';
-        break;
-      case AppTheme.OCEAN:
-        bg1 = 'rgba(0, 97, 164, 0.1)';
-        bg2 = 'rgba(0, 108, 76, 0.05)';
-        gradient = 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)';
-        bodyBg = '#e1f5fe';
-        onSurface = '#001d33';
-        break;
-      case AppTheme.NIGHT:
-        bg1 = 'rgba(103, 80, 164, 0.1)';
-        bg2 = 'rgba(0, 0, 0, 0.2)';
-        gradient = 'linear-gradient(135deg, #1c1b1f 0%, #121212 100%)';
-        bodyBg = '#1c1b1f';
-        onSurface = '#e6e1e5';
-        break;
-      case AppTheme.ROSE:
-        bg1 = 'rgba(186, 26, 26, 0.08)';
-        bg2 = 'rgba(103, 80, 164, 0.05)';
-        gradient = 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)';
-        bodyBg = '#fff1f2';
-        onSurface = '#270001';
-        break;
+    // Basic contrast check for text color
+    const hex = theme.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    if (brightness < 128) {
+      onSurface = '#e1e3df';
+      bg1 = 'rgba(255, 255, 255, 0.05)';
+      bg2 = 'rgba(255, 255, 255, 0.02)';
     }
 
     root.style.setProperty('--liquid-color-1', bg1);
@@ -348,13 +347,8 @@ const App: React.FC = () => {
     const sss = s.padStart(3, '0');
     const aaa = v.padStart(3, '0');
     
-    let url = "";
-    if (audioSource === 'online') {
-      const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
-      url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
-    } else {
-      url = `${OFFLINE_AUDIO_BASE_URL}${sss}${aaa}.mp3`;
-    }
+    const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
+    const url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
 
     if (audioRef.current.src !== url && !audioRef.current.src.endsWith(url)) {
       audioRef.current.src = url;
@@ -381,6 +375,7 @@ const App: React.FC = () => {
     const result = await initSQLite(file);
     if (result.success) {
       setDbReady(true);
+      setAvailableTafseers(getAvailableTafseers());
     } else {
       alert(result.error || "هەڵەیەک ڕوویدا لە کاتی بارکردنی فایلەکە.");
     }
@@ -415,7 +410,7 @@ const App: React.FC = () => {
             }
           }}
           className={`p-3 rounded-[20px] shadow-sm flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer border backdrop-blur-md ${
-            theme === AppTheme.DARK ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-emerald-50/60 border-emerald-100/50'
+            theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-emerald-50/60 border-emerald-100/50'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -433,13 +428,37 @@ const App: React.FC = () => {
 
       {/* View Mode & Font Size Settings */}
       <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 backdrop-blur-md ${
-        theme === AppTheme.DARK ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
+        theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
       }`}>
+        <div>
+          <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
+            <Database size={16} /> سەرچاوەی تەفسیر
+          </h4>
+          <div className="grid grid-cols-1 gap-2">
+            {TAFSEER_FILES.map(file => (
+              <button
+                key={file.id}
+                onClick={() => switchTafseerFile(file.id)}
+                className={`px-4 py-3 rounded-2xl text-right font-bold text-xs transition-all flex items-center justify-between ${
+                  activeTafseerFile === file.id 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : (isDark(theme) ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200')
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {activeTafseerFile === file.id && <CheckCircle2 size={14} />}
+                  <span>{file.name}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
             <LayoutIcon size={16} /> شێوازی پیشاندان
           </h4>
-          <div className={`flex p-1 rounded-2xl ${theme === AppTheme.DARK ? 'bg-black/40' : 'bg-gray-100'}`}>
+          <div className={`flex p-1 rounded-2xl ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40' : 'bg-gray-100'}`}>
             {[
               { id: 'quran', label: 'قورئان', icon: <AlignRight size={14} /> },
               { id: 'both', label: 'هەردووکی', icon: <LayoutIcon size={14} /> },
@@ -484,7 +503,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="px-2 flex items-center gap-4">
-            <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>-</button>
+            <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-gray-100'}`}>-</button>
             <input 
               type="range" 
               min="0.5" 
@@ -495,7 +514,7 @@ const App: React.FC = () => {
               className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: accentColor }}
             />
-            <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
+            <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
           </div>
         </div>
       </div>
@@ -504,53 +523,80 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">لیستی سوورەتەکان</h2>
           <div className="flex gap-2">
-            <button 
-              onClick={() => setTheme(AppTheme.EMERALD)}
-              className={`w-8 h-8 rounded-full bg-[#006c4c] border-2 transition-all ${theme === AppTheme.EMERALD ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-lg' : 'opacity-60'}`}
-            />
-            <button 
-              onClick={() => setTheme(AppTheme.DARK)}
-              className={`w-8 h-8 rounded-full bg-[#191c1a] border-2 transition-all ${theme === AppTheme.DARK ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-lg' : 'opacity-60'}`}
-            />
-            <button 
-              onClick={() => setTheme(AppTheme.SEPIA)}
-              className={`w-8 h-8 rounded-full bg-[#f5e8d9] border-2 transition-all ${theme === AppTheme.SEPIA ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-lg' : 'opacity-60'}`}
+            <input 
+              type="color" 
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="w-10 h-10 rounded-full border-2 border-white shadow-md cursor-pointer overflow-hidden"
             />
           </div>
         </div>
 
         {/* Advanced Theme Picker */}
         <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 backdrop-blur-md ${
-          theme === AppTheme.DARK ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
+          theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
         }`}>
           <div>
             <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
-              <Palette size={16} /> ڕووکارە پێشکەوتووەکان
+              <Palette size={16} /> ڕووکارەکان
             </h4>
             <div className="flex flex-wrap gap-3">
               {[
-                { id: AppTheme.EMERALD, label: 'سەوز', color: '#006c4c' },
-                { id: AppTheme.OCEAN, label: 'زەریا', color: '#0061a4' },
-                { id: AppTheme.NIGHT, label: 'شەو', color: '#1c1b1f' },
-                { id: AppTheme.ROSE, label: 'گوڵ', color: '#ba1a1a' },
-                { id: AppTheme.SEPIA, label: 'کۆن', color: '#725c00' },
-                { id: AppTheme.DARK, label: 'تاریک', color: '#191c1a' },
+                { id: '#f0f4f2', color: '#f0f4f2' },
+                { id: '#e1f5fe', color: '#e1f5fe' },
+                { id: '#1c1b1f', color: '#1c1b1f' },
+                { id: '#fff1f2', color: '#fff1f2' },
+                { id: '#fdf3e7', color: '#fdf3e7' },
+                { id: '#0a0c0b', color: '#0a0c0b' },
+                { id: '#dcc1a7', color: '#dcc1a7' },
               ].map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] font-bold transition-all border ${
+                  className={`w-10 h-10 rounded-full border-2 transition-all ${
                     theme === t.id 
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' 
-                      : (theme === AppTheme.DARK ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200')
+                      ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-lg' 
+                      : 'opacity-60'
                   }`}
-                >
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }}></div>
-                  {t.label}
-                </button>
+                  style={{ backgroundColor: t.color }}
+                />
               ))}
+              <div className="flex items-center gap-2 ml-2">
+                <input 
+                  type="text" 
+                  value={theme} 
+                  onChange={(e) => setTheme(e.target.value)}
+                  className={`w-24 h-10 px-3 rounded-xl text-xs font-mono border-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    isDark(theme) ? 'bg-black/20 border-white/10 text-white' : 'bg-white border-black/5 text-black'
+                  }`}
+                  placeholder="#hex"
+                />
+              </div>
             </div>
           </div>
+
+          {availableTafseers.length > 0 && (
+            <div>
+              <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
+                <Database size={16} /> هەڵبژاردنی تەفسیر
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {availableTafseers.map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setActiveTafseer(t)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${
+                      activeTafseer === t 
+                        ? 'bg-emerald-600 text-white shadow-md' 
+                        : 'bg-black/5 opacity-60'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
@@ -564,7 +610,7 @@ const App: React.FC = () => {
                   className={`w-10 h-10 rounded-full border-4 transition-all relative ${
                     accentColor === color ? 'scale-110 shadow-xl ring-2 ring-offset-2 ring-emerald-500' : 'opacity-60 scale-90'
                   }`}
-                  style={{ backgroundColor: color, borderColor: (color === AccentColor.BLACK && theme === AppTheme.DARK) || (color === AccentColor.WHITE && theme !== AppTheme.DARK) ? '#ddd' : 'transparent' }}
+                  style={{ backgroundColor: color, borderColor: (color === AccentColor.BLACK && (theme.startsWith('#0') || theme.startsWith('#1'))) || (color === AccentColor.WHITE && !(theme.startsWith('#0') || theme.startsWith('#1'))) ? '#ddd' : 'transparent' }}
                 >
                   {accentColor === color && <div className={`absolute inset-0 flex items-center justify-center ${color === AccentColor.WHITE ? 'text-black' : 'text-white'}`}><CheckCircle2 size={16} /></div>}
                 </button>
@@ -618,7 +664,7 @@ const App: React.FC = () => {
 
           {bookmarks.length === 0 ? (
             <div className={`p-10 rounded-[40px] flex flex-col items-center gap-4 text-center opacity-40 border-2 border-dashed ${
-              theme === AppTheme.DARK ? 'border-gray-800' : 'border-gray-200'
+              theme.startsWith('#0') || theme.startsWith('#1') ? 'border-gray-800' : 'border-gray-200'
             }`}>
               <BookmarkIcon size={48} />
               <p className="font-bold">هیچ نیشانەیەک نییە</p>
@@ -630,7 +676,7 @@ const App: React.FC = () => {
                 <div 
                   key={b.verseKey}
                   className={`p-4 rounded-[28px] flex items-center justify-between transition-all active:scale-[0.98] border shadow-sm ${
-                    theme === AppTheme.DARK ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-white/40 border-gray-100/50'
+                    theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-white/40 border-gray-100/50'
                   }`}
                 >
                   <div 
@@ -695,7 +741,7 @@ const App: React.FC = () => {
           <div className="page-enter pb-safe relative">
             <div 
               className={`sticky top-0 z-20 flex flex-col border-b shadow-md transition-all duration-500 pt-safe backdrop-blur-md ${
-                theme === AppTheme.DARK ? 'bg-[#191c1a]/80 border-gray-800' : 'bg-white/80 border-gray-100'
+                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#191c1a]/80 border-gray-800' : 'bg-white/80 border-gray-100'
               } ${isHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}
             >
               <div className="p-3 flex gap-2 items-center justify-center w-full overflow-x-auto no-scrollbar">
@@ -703,7 +749,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={() => setIsHeaderVisible(false)}
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                    theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                    theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                   }`}
                 >
                   <Minus size={20} />
@@ -712,7 +758,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={goHome}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                  theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                 }`}
               >
                 <ArrowRight size={20} />
@@ -726,7 +772,7 @@ const App: React.FC = () => {
                     if (s) handleSurahClick(s);
                   }}
                   className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
-                    theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                    theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                   }`}
                 >
                   {surahs.map(s => (
@@ -743,7 +789,7 @@ const App: React.FC = () => {
                     scrollToAyah(e.target.value);
                   }}
                   className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-xs text-center focus:outline-none transition-all pr-8 ${
-                    theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                    theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                   }`}
                 >
                   <option value="">ئایەت</option>
@@ -754,7 +800,7 @@ const App: React.FC = () => {
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={14} /></div>
               </div>
 
-              {/* Playback Mode Toggler */}
+              {/* Audio Playback Mode */}
               <button 
                 onClick={() => setPlaybackMode(prev => {
                   if (prev === 'continuous') return 'repeat';
@@ -764,7 +810,7 @@ const App: React.FC = () => {
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                   playbackMode !== 'once' 
                     ? 'bg-emerald-600 text-white shadow-lg' 
-                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                 }`}
                 title={playbackMode === 'continuous' ? "بەردەوام" : playbackMode === 'repeat' ? "دووبارەکردنەوە" : "تەنها یەکجار"}
               >
@@ -773,27 +819,13 @@ const App: React.FC = () => {
                 {playbackMode === 'once' && <Play size={20} className="opacity-40" />}
               </button>
 
-              {/* Audio Source Toggler */}
-              <button 
-                onClick={() => setAudioSource(prev => prev === 'offline' ? 'online' : 'offline')}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  audioSource === 'offline' 
-                    ? 'bg-emerald-600 text-white shadow-lg' 
-                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
-                }`}
-                title={audioSource === 'offline' ? "ئۆفلاین" : "ئۆنلاین"}
-              >
-                {audioSource === 'offline' ? <WifiOff size={20} /> : <Wifi size={20} />}
-              </button>
-
-              {/* Reciter Selector (Online only) */}
-              {audioSource === 'online' && (
-                <div className="relative flex-1 max-w-[150px]">
+              {/* Reciter Selector */}
+              <div className="relative flex-1 max-w-[150px]">
                   <select 
                     value={selectedReciterId} 
                     onChange={(e) => setSelectedReciterId(e.target.value)}
                     className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-[10px] text-center focus:outline-none transition-all pr-8 ${
-                      theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                      theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                     }`}
                   >
                     {RECITERS.map(r => (
@@ -802,7 +834,6 @@ const App: React.FC = () => {
                   </select>
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><User size={14} /></div>
                 </div>
-              )}
 
               {/* View Mode Cycle Button */}
               <button 
@@ -814,7 +845,7 @@ const App: React.FC = () => {
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                   viewMode !== 'both' 
                     ? 'bg-emerald-600 text-white shadow-lg' 
-                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
                 }`}
                 title={viewMode === 'both' ? "هەردووکی" : viewMode === 'quran' ? "ئایەت" : "تەفسیر"}
               >
@@ -831,7 +862,7 @@ const App: React.FC = () => {
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                   showInSurahFontSettings 
                     ? 'text-white shadow-lg' 
-                    : (theme === AppTheme.DARK ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
+                    : (theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
                 }`}
                 style={{ backgroundColor: showInSurahFontSettings ? accentColor : undefined }}
               >
@@ -846,7 +877,7 @@ const App: React.FC = () => {
                   e.stopPropagation();
                 }}
                 className={`px-4 py-4 flex items-center gap-4 animate-in slide-in-from-top duration-200 border-t backdrop-blur-sm ${
-                theme === AppTheme.DARK ? 'bg-black/40 border-gray-800' : 'bg-gray-50/60 border-gray-100'
+                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40 border-gray-800' : 'bg-gray-50/60 border-gray-100'
               }`}>
                 <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Minus size={16} /></button>
                 <div className="flex-1 flex flex-col gap-1">
@@ -895,7 +926,7 @@ const App: React.FC = () => {
                   key={v.id} 
                   ref={(el) => { verseRefs.current[v.verse_key] = el; }}
                   data-verse-key={v.verse_key}
-                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme === AppTheme.DARK ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
+                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -933,7 +964,7 @@ const App: React.FC = () => {
 
                   {(viewMode === 'tafseer' || viewMode === 'both') && (
                     <div className={`text-right p-6 rounded-[32px] border-r-8 transition-all animate-in fade-in duration-500 ${
-                      theme === AppTheme.DARK 
+                    theme.startsWith('#0') || theme.startsWith('#1') 
                         ? 'bg-gray-800/40' 
                         : 'bg-white shadow-sm'
                     }`} style={{ borderColor: accentColor }}>
@@ -961,7 +992,7 @@ const App: React.FC = () => {
                 onClick={() => handleSurahNavigate(-1)}
                 disabled={selectedSurah?.id === 1}
                 className={`flex-1 flex items-center justify-center gap-3 py-5 rounded-[28px] font-bold text-sm transition-all active:scale-95 shadow-lg disabled:opacity-20 ${
-                  theme === AppTheme.DARK ? 'bg-gray-800' : 'bg-white'
+                  theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800' : 'bg-white'
                 }`}
                 style={{ color: accentColor }}
               >
@@ -998,13 +1029,17 @@ const App: React.FC = () => {
           onToggleAudio={() => toggleAudio(selectedVerse.verse_key)}
           isBookmarked={bookmarks.some(b => b.verseKey === selectedVerse.verse_key)}
           onToggleBookmark={() => selectedSurah && toggleBookmark(selectedSurah, selectedVerse.verse_key)}
+          activeTafseer={activeTafseer}
+          availableTafseerFiles={TAFSEER_FILES}
+          activeTafseerFile={activeTafseerFile}
+          onSwitchTafseerFile={switchTafseerFile}
         />
       )}
 
       {showExitConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-xs p-8 rounded-[40px] shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 ${
-            theme === AppTheme.DARK ? 'bg-[#212622] text-white' : 'bg-white text-gray-900'
+            theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622] text-white' : 'bg-white text-gray-900'
           }`}>
             <div className="text-center space-y-2">
               <h3 className="text-xl font-bold">داخستنی بەرنامە</h3>
@@ -1014,7 +1049,7 @@ const App: React.FC = () => {
               <button 
                 onClick={() => setShowExitConfirm(false)}
                 className={`flex-1 py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 ${
-                  theme === AppTheme.DARK ? 'bg-white/10' : 'bg-gray-100'
+                  theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-gray-100'
                 }`}
               >
                 نەخێر
