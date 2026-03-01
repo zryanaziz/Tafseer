@@ -5,8 +5,8 @@ import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadPersistedDB, loadDefaultDB, getTafseerFromDB } from './services/dbService';
-import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, WifiOff, User, Bookmark } from 'lucide-react';
+import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, WifiOff, User, Bookmark as BookmarkIcon, Trash2 } from 'lucide-react';
 import { AUDIO_BASE_URL, OFFLINE_AUDIO_BASE_URL, RECITERS } from './constants';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
@@ -26,13 +26,13 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('app_view_mode') as ViewMode) || 'both');
   const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('app_font_size')) || 1);
   const [showInSurahFontSettings, setShowInSurahFontSettings] = useState(false);
-  const [bookmarks, setBookmarks] = useState<string[]>(() => {
-    const saved = localStorage.getItem('app_bookmarks');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [lastRead, setLastRead] = useState<LastRead | null>(() => {
     const saved = localStorage.getItem('app_last_read');
     return saved ? JSON.parse(saved) : null;
+  });
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
+    const saved = localStorage.getItem('app_bookmarks');
+    return saved ? JSON.parse(saved) : [];
   });
   
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
@@ -100,10 +100,12 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('app_font_size', fontSize.toString()); }, [fontSize]);
   useEffect(() => { localStorage.setItem('app_audio_source', audioSource); }, [audioSource]);
   useEffect(() => { localStorage.setItem('app_selected_reciter', selectedReciterId); }, [selectedReciterId]);
-  useEffect(() => { localStorage.setItem('app_bookmarks', JSON.stringify(bookmarks)); }, [bookmarks]);
   useEffect(() => { 
     if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
   }, [lastRead]);
+  useEffect(() => { 
+    localStorage.setItem('app_bookmarks', JSON.stringify(bookmarks)); 
+  }, [bookmarks]);
 
   // Update CSS variables based on theme and accent color
   useEffect(() => {
@@ -202,6 +204,22 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleBookmark = (surah: Surah, verseKey: string) => {
+    setBookmarks(prev => {
+      const exists = prev.find(b => b.verseKey === verseKey);
+      if (exists) {
+        return prev.filter(b => b.verseKey !== verseKey);
+      } else {
+        return [...prev, {
+          surahId: surah.id,
+          surahName: surah.name_arabic,
+          verseKey: verseKey,
+          timestamp: Date.now()
+        }];
+      }
+    });
+  };
+
   const loadVerses = async (surahId: number) => {
     setLoading(true);
     try {
@@ -214,26 +232,16 @@ const App: React.FC = () => {
     }
   };
 
-  const toggleBookmark = (verseKey: string) => {
-    setBookmarks(prev => 
-      prev.includes(verseKey) 
-        ? prev.filter(k => k !== verseKey) 
-        : [...prev, verseKey]
-    );
-  };
-
-  const handleSurahClick = async (surah: Surah, targetAyah?: string) => {
+  const handleSurahClick = async (surah: Surah, targetVerseKey?: string) => {
     setSelectedSurah(surah);
     setScreen(AppScreen.SURAH_DETAIL);
     setJumpToAyah("");
     setIsHeaderVisible(true);
     await loadVerses(surah.id);
     
-    if (targetAyah) {
-      setTimeout(() => scrollToAyah(targetAyah), 300);
-    } else {
+    if (!targetVerseKey) {
       saveLastRead(surah, `${surah.id}:1`);
-      // Scroll to top of the main content area
+      // Only scroll to top if we're not jumping to a specific verse
       setTimeout(() => {
         const main = document.querySelector('main');
         if (main) main.scrollTop = 0;
@@ -254,13 +262,15 @@ const App: React.FC = () => {
     }, 100);
   };
 
-  const scrollToAyah = (ayahNum: string) => {
+  const scrollToAyah = (ayahNum: string, surahId?: number, surahObj?: Surah) => {
     setJumpToAyah(ayahNum);
-    const key = `${selectedSurah?.id}:${ayahNum}`;
+    const sId = surahId || selectedSurah?.id;
+    const key = `${sId}:${ayahNum}`;
     const element = verseRefs.current[key];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (selectedSurah) saveLastRead(selectedSurah, key);
+      const s = surahObj || selectedSurah;
+      if (s) saveLastRead(s, key);
     }
   };
 
@@ -382,11 +392,26 @@ const App: React.FC = () => {
       {/* Last Read Section - Small size front page */}
       {lastRead && (
         <div 
-          onClick={() => {
+          onClick={async () => {
             const s = surahs.find(sur => sur.id === lastRead.surahId);
             if (s) {
-              const ayah = lastRead.verseKey.split(':')[1];
-              handleSurahClick(s, ayah);
+              const targetKey = lastRead.verseKey;
+              const ayah = targetKey.split(':')[1];
+              await handleSurahClick(s, targetKey);
+              
+              // Wait for verses to load and render
+              let attempts = 0;
+              const checkAndScroll = () => {
+                const element = verseRefs.current[targetKey];
+                if (element) {
+                  // Use a small delay to ensure layout is stable
+                  setTimeout(() => scrollToAyah(ayah, s.id, s), 100);
+                } else if (attempts < 20) {
+                  attempts++;
+                  setTimeout(checkAndScroll, 100);
+                }
+              };
+              checkAndScroll();
             }
           }}
           className={`p-3 rounded-[20px] shadow-sm flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer border backdrop-blur-md ${
@@ -403,33 +428,6 @@ const App: React.FC = () => {
             </div>
           </div>
           <ArrowLeft size={14} className="opacity-20" />
-        </div>
-      )}
-
-      {/* Bookmarks Section */}
-      {bookmarks.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-bold flex items-center gap-2 opacity-40 uppercase tracking-widest px-2">
-            <Bookmark size={14} /> نیشانەکراوەکان ({bookmarks.length})
-          </h4>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
-            {bookmarks.map(key => {
-              const [sId, vId] = key.split(':');
-              const surah = surahs.find(s => s.id === parseInt(sId));
-              return (
-                <div 
-                  key={key}
-                  onClick={() => surah && handleSurahClick(surah, vId)}
-                  className={`flex-shrink-0 p-4 rounded-[24px] border shadow-sm transition-all active:scale-95 cursor-pointer flex flex-col gap-1 min-w-[120px] backdrop-blur-md ${
-                    theme === AppTheme.DARK ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-white border-gray-100'
-                  }`}
-                >
-                  <span className="text-[10px] font-bold opacity-40 uppercase tracking-tighter">{surah?.name_simple || 'Surah'}</span>
-                  <span className="text-sm font-bold" style={{ color: accentColor }}>ئایەتی {vId}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
@@ -586,7 +584,11 @@ const App: React.FC = () => {
     <Layout 
       activeScreen={screen} 
       onNavigate={setScreen} 
-      title={screen === AppScreen.HOME ? "تەفسیری قورئان" : selectedSurah?.name_arabic || ""}
+      title={
+        screen === AppScreen.HOME ? "تەفسیری قورئان" : 
+        screen === AppScreen.BOOKMARKS ? "نیشانەکان" :
+        selectedSurah?.name_arabic || ""
+      }
       showBack={screen === AppScreen.SURAH_DETAIL}
       onBack={goHome}
       theme={theme}
@@ -604,6 +606,79 @@ const App: React.FC = () => {
       )}
 
       {screen === AppScreen.HOME && renderHome()}
+      
+      {screen === AppScreen.BOOKMARKS && (
+        <div className="page-enter py-6 px-4 space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">نیشانەکان</h2>
+            <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
+              {bookmarks.length} نیشانە
+            </span>
+          </div>
+
+          {bookmarks.length === 0 ? (
+            <div className={`p-10 rounded-[40px] flex flex-col items-center gap-4 text-center opacity-40 border-2 border-dashed ${
+              theme === AppTheme.DARK ? 'border-gray-800' : 'border-gray-200'
+            }`}>
+              <BookmarkIcon size={48} />
+              <p className="font-bold">هیچ نیشانەیەک نییە</p>
+              <p className="text-xs">دەتوانیت لە کاتی خوێندنەوەدا نیشانە بۆ ئایەتەکان دابنێیت</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {bookmarks.sort((a, b) => b.timestamp - a.timestamp).map(b => (
+                <div 
+                  key={b.verseKey}
+                  className={`p-4 rounded-[28px] flex items-center justify-between transition-all active:scale-[0.98] border shadow-sm ${
+                    theme === AppTheme.DARK ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-white/40 border-gray-100/50'
+                  }`}
+                >
+                  <div 
+                    className="flex-1 flex items-center gap-4 cursor-pointer"
+                    onClick={async () => {
+                      const s = surahs.find(sur => sur.id === b.surahId);
+                      if (s) {
+                        const targetKey = b.verseKey;
+                        const ayah = targetKey.split(':')[1];
+                        await handleSurahClick(s, targetKey);
+                        
+                        let attempts = 0;
+                        const checkAndScroll = () => {
+                          const element = verseRefs.current[targetKey];
+                          if (element) {
+                            setTimeout(() => scrollToAyah(ayah, s.id, s), 100);
+                          } else if (attempts < 20) {
+                            attempts++;
+                            setTimeout(checkAndScroll, 100);
+                          }
+                        };
+                        checkAndScroll();
+                      }
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
+                      {b.surahId}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm">{b.surahName}</h4>
+                      <p className="text-[10px] opacity-50">ئایەتی {b.verseKey.split(':')[1]}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const s = surahs.find(sur => sur.id === b.surahId);
+                      if (s) toggleBookmark(s, b.verseKey);
+                    }}
+                    className="p-3 rounded-full text-red-400 hover:bg-red-50 active:scale-90 transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       
       {screen === AppScreen.SURAH_DETAIL && (
         <>
@@ -833,21 +908,18 @@ const App: React.FC = () => {
                       >
                         {playingVerseKey === v.verse_key ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
                       </button>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => toggleBookmark(v.verse_key)}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-                          bookmarks.includes(v.verse_key) ? 'bg-emerald-500 text-white shadow-lg' : 'bg-black/5 opacity-40'
+                        onClick={() => selectedSurah && toggleBookmark(selectedSurah, v.verse_key)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                          bookmarks.some(b => b.verseKey === v.verse_key) ? 'bg-amber-500 text-white shadow-amber-200' : 'bg-amber-100 text-amber-700'
                         }`}
-                        style={{ backgroundColor: bookmarks.includes(v.verse_key) ? accentColor : undefined }}
                       >
-                        <Bookmark size={16} fill={bookmarks.includes(v.verse_key) ? "currentColor" : "none"} />
-                      </button>
-                      <button onClick={() => setSelectedVerse(v)} className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-all" style={{ backgroundColor: accentColor }}>
-                        <Database size={16} />
+                        <BookmarkIcon size={18} fill={bookmarks.some(b => b.verseKey === v.verse_key) ? "currentColor" : "none"} />
                       </button>
                     </div>
+                    <button onClick={() => setSelectedVerse(v)} className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-all" style={{ backgroundColor: accentColor }}>
+                      <Database size={16} />
+                    </button>
                   </div>
 
                   {(viewMode === 'quran' || viewMode === 'both') && (
@@ -924,6 +996,8 @@ const App: React.FC = () => {
           fontSize={fontSize}
           isPlaying={playingVerseKey === selectedVerse.verse_key}
           onToggleAudio={() => toggleAudio(selectedVerse.verse_key)}
+          isBookmarked={bookmarks.some(b => b.verseKey === selectedVerse.verse_key)}
+          onToggleBookmark={() => selectedSurah && toggleBookmark(selectedSurah, selectedVerse.verse_key)}
         />
       )}
 

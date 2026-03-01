@@ -35,6 +35,13 @@ export interface LastRead {
   timestamp: number;
 }
 
+export interface Bookmark {
+  surahId: number;
+  surahName: string;
+  verseKey: string;
+  timestamp: number;
+}
+
 /**
  * Interface representing a Tafseer entry from the Quran API
  */

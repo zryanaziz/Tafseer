@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Layers } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark } from 'lucide-react';
 import { Verse, AppTheme, AccentColor } from '../types';
-import { getTafseerFromDB, getOtherTafseersFromDB } from '../services/dbService';
+import { getTafseerFromDB } from '../services/dbService';
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 
@@ -18,14 +18,14 @@ interface TafseerOverlayProps {
   fontSize: number;
   isPlaying: boolean;
   onToggleAudio: () => void;
+  isBookmarked: boolean;
+  onToggleBookmark: () => void;
 }
 
 const TafseerOverlay: React.FC<TafseerOverlayProps> = ({ 
-  verse, onClose, onNext, onPrev, theme, accentColor = AccentColor.EMERALD, viewMode, onViewModeChange, fontSize, isPlaying, onToggleAudio
+  verse, onClose, onNext, onPrev, theme, accentColor = AccentColor.EMERALD, viewMode, onViewModeChange, fontSize, isPlaying, onToggleAudio, isBookmarked, onToggleBookmark
 }) => {
   const [dbContent, setDbContent] = useState<string | null>(null);
-  const [otherTafseers, setOtherTafseers] = useState<Record<string, string | null>>({});
-  const [showOtherTafseers, setShowOtherTafseers] = useState(false);
 
   useEffect(() => {
     const parts = verse.verse_key.split(':');
@@ -33,7 +33,6 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
     const verseId = parseInt(parts[1]);
     
     setDbContent(getTafseerFromDB(surahId, verseId));
-    setOtherTafseers(getOtherTafseersFromDB(surahId, verseId));
   }, [verse.verse_key]);
 
   const getOverlayBg = () => {
@@ -79,14 +78,14 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
                {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
              </button>
              <button 
-               onClick={() => setShowOtherTafseers(!showOtherTafseers)}
+               onClick={onToggleBookmark}
                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                 showOtherTafseers ? 'bg-emerald-500 text-white shadow-lg' : 'bg-black/5 opacity-60'
+                 isBookmarked ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700'
                }`}
-               style={{ backgroundColor: showOtherTafseers ? accentColor : undefined }}
              >
-               <Layers size={18} />
+               <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
              </button>
+             <Database size={20} className="opacity-40" />
           </div>
         </div>
 
@@ -140,65 +139,29 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
 
         {/* SQLite Content Section */}
         {(viewMode === 'tafseer' || viewMode === 'both') && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="space-y-3 px-2">
-              <div className="flex items-center gap-2 opacity-40">
-                <Lock size={14} />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em]">تەفسیری سەرەکی</span>
-              </div>
-              
-              <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
-                dbContent 
-                  ? (theme === AppTheme.DARK ? 'bg-gray-800/50' : 'bg-white') 
-                  : 'border-gray-200 bg-gray-100 opacity-40 grayscale flex items-center justify-center'
-              }`} style={{ borderColor: dbContent ? accentColor : undefined }}>
-                {dbContent ? (
-                  <div 
-                    className="whitespace-pre-wrap select-text"
-                    style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
-                  >{dbContent}</div>
-                ) : (
-                  <div className="flex flex-col items-center gap-4 opacity-50 text-center" style={{ color: accentColor }}>
-                    <Database size={32} />
-                    <p className="text-sm font-bold">بۆ ئەم ئایەتە هیچ تەفسیرێک نەدۆزرایەوە.</p>
-                  </div>
-                )}
-              </div>
+          <div className="space-y-3 px-2 animate-in fade-in duration-500">
+            <div className="flex items-center gap-2 opacity-40">
+              <Lock size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">ناوەڕۆکی فایلی SQLite</span>
             </div>
-
-            {/* Other Tafseers */}
-            {showOtherTafseers && (
-              <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
-                {['tafseer2', 'tafseer3', 'tafseer4', 'tafseer5', 'tafseer6'].map((tName, index) => {
-                  const content = otherTafseers[tName];
-                  if (!content) return null;
-                  
-                  return (
-                    <div key={tName} className="space-y-3 px-2">
-                      <div className="flex items-center gap-2 opacity-40">
-                        <Layers size={14} />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">تەفسیری {index + 2}</span>
-                      </div>
-                      <div className={`p-8 rounded-[40px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
-                        theme === AppTheme.DARK ? 'bg-gray-800/50' : 'bg-white'
-                      }`} style={{ borderColor: accentColor }}>
-                        <div 
-                          className="whitespace-pre-wrap select-text"
-                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
-                        >{content}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                {Object.values(otherTafseers).every(val => val === null) && (
-                  <div className="p-8 rounded-[40px] border-gray-200 bg-gray-100 opacity-40 grayscale flex flex-col items-center justify-center gap-4 text-center border-t-4" style={{ borderColor: accentColor }}>
-                    <Database size={32} />
-                    <p className="text-sm font-bold">هیچ تەفسیرێکی تر نەدۆزرایەوە لە داتابەیسەکەدا.</p>
-                  </div>
-                )}
-              </div>
-            )}
+            
+            <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
+              dbContent 
+                ? (theme === AppTheme.DARK ? 'bg-gray-800/50' : 'bg-white') 
+                : 'border-gray-200 bg-gray-100 opacity-40 grayscale flex items-center justify-center'
+            }`} style={{ borderColor: dbContent ? accentColor : undefined }}>
+              {dbContent ? (
+                <div 
+                  className="whitespace-pre-wrap select-text"
+                  style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
+                >{dbContent}</div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 opacity-50 text-center" style={{ color: accentColor }}>
+                  <Database size={32} />
+                  <p className="text-sm font-bold">بۆ ئەم ئایەتە هیچ تەفسیرێک نەدۆزرایەوە.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
