@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown, Volume2, Minus, Plus } from 'lucide-react';
 import { Verse, AppTheme, AccentColor } from '../types';
 import { getTafseerFromDB } from '../services/dbService';
 
@@ -24,14 +24,19 @@ interface TafseerOverlayProps {
   availableTafseerFiles: { id: string, name: string }[];
   activeTafseerFile: string;
   onSwitchTafseerFile: (fileName: string) => void;
+  playbackSpeed: number;
+  onPlaybackSpeedChange: (speed: number) => void;
+  ayahRepeatCount: number;
+  onAyahRepeatCountChange: (count: number) => void;
 }
 
 const TafseerOverlay: React.FC<TafseerOverlayProps> = ({ 
   verse, onClose, onNext, onPrev, theme, accentColor = AccentColor.EMERALD, viewMode, onViewModeChange, fontSize, isPlaying, onToggleAudio, isBookmarked, onToggleBookmark, activeTafseer,
-  availableTafseerFiles, activeTafseerFile, onSwitchTafseerFile
+  availableTafseerFiles, activeTafseerFile, onSwitchTafseerFile, playbackSpeed, onPlaybackSpeedChange, ayahRepeatCount, onAyahRepeatCountChange
 }) => {
   const [dbContent, setDbContent] = useState<string | null>(null);
   const [showTafseerSelector, setShowTafseerSelector] = useState(false);
+  const [showPlaybackSettings, setShowPlaybackSettings] = useState(false);
 
   useEffect(() => {
     const parts = verse.verse_key.split(':');
@@ -44,11 +49,11 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
   const isDarkTheme = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
 
   const getOverlayBg = () => {
-    return `backdrop-blur-xl ${isDarkTheme ? 'bg-black/80 text-gray-100' : 'bg-white/80 text-gray-900'}`;
+    return `backdrop-blur-xl ${isDarkTheme ? 'bg-black/40 text-gray-100' : 'bg-white/40 text-gray-900'}`;
   };
 
   const getHeaderStyles = () => {
-    return `backdrop-blur-md border-b ${isDarkTheme ? 'bg-black/60 border-gray-800 text-white' : 'bg-white/60 border-gray-100 text-gray-900'}`;
+    return `backdrop-blur-md border-b ${isDarkTheme ? 'bg-black/40 border-gray-800 text-white' : 'bg-white/40 border-gray-100 text-gray-900'}`;
   };
 
   return (
@@ -63,6 +68,14 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
             <h2 className="font-bold text-lg leading-tight">ئایەتی {verse.verse_key}</h2>
           </div>
           <div className="flex items-center gap-2">
+             <button 
+               onClick={() => setShowPlaybackSettings(!showPlaybackSettings)}
+               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                 showPlaybackSettings ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-700'
+               }`}
+             >
+               <Volume2 size={18} />
+             </button>
              <button 
                onClick={onToggleAudio}
                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
@@ -81,6 +94,55 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
              </button>
           </div>
         </div>
+
+        {/* Playback Settings Panel */}
+        {showPlaybackSettings && (
+          <div className={`p-4 rounded-2xl animate-in slide-in-from-top duration-300 self-center w-full max-w-[320px] ${
+            isDarkTheme ? 'bg-black/40 border border-white/5' : 'bg-black/5 border border-black/5'
+          }`}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between opacity-60">
+                  <span className="text-[10px] font-bold">خێرایی خوێندنەوە</span>
+                  <input 
+                    type="number" 
+                    min="0.1" 
+                    max="5.0" 
+                    step="0.1" 
+                    value={playbackSpeed} 
+                    onChange={(e) => onPlaybackSpeedChange(Math.min(5, Math.max(0.1, Number(e.target.value))))}
+                    className="w-10 bg-transparent text-right text-[10px] font-mono focus:outline-none border-b border-emerald-500/30"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => onPlaybackSpeedChange(Math.max(0.1, Number((playbackSpeed - 0.1).toFixed(1))))} className="p-1.5 rounded-lg bg-black/5"><Minus size={14} /></button>
+                  <input 
+                    type="range" min="0.1" max="5" step="0.1" 
+                    value={playbackSpeed} onChange={(e) => onPlaybackSpeedChange(Number(e.target.value))}
+                    className="flex-1 accent-emerald-600 h-1"
+                  />
+                  <button onClick={() => onPlaybackSpeedChange(Math.min(5, Number((playbackSpeed + 0.1).toFixed(1))))} className="p-1.5 rounded-lg bg-black/5"><Plus size={14} /></button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between opacity-60">
+                  <span className="text-[10px] font-bold">دووبارەکردنەوەی ئایەت</span>
+                  <span className="text-[10px] font-mono">{ayahRepeatCount} جار</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => onAyahRepeatCountChange(Math.max(1, ayahRepeatCount - 1))} className="p-1.5 rounded-lg bg-black/5"><Minus size={14} /></button>
+                  <input 
+                    type="range" min="1" max="10" step="1" 
+                    value={ayahRepeatCount} onChange={(e) => onAyahRepeatCountChange(Number(e.target.value))}
+                    className="flex-1 accent-emerald-600 h-1"
+                  />
+                  <button onClick={() => onAyahRepeatCountChange(Math.min(10, ayahRepeatCount + 1))} className="p-1.5 rounded-lg bg-black/5"><Plus size={14} /></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* View Mode Switcher */}
         <div className="flex flex-col gap-3 w-full max-w-[320px] self-center">
@@ -127,7 +189,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
         {/* Quran Section */}
         {(viewMode === 'quran' || viewMode === 'both') && (
           <div className={`p-8 rounded-[40px] border shadow-sm text-right transition-all animate-in fade-in duration-500 ${
-            isDarkTheme ? 'bg-[#212622] border-gray-800' : 'bg-white border-gray-100'
+            isDarkTheme ? 'bg-black/20 border-gray-800' : 'bg-black/5 border-black/5'
           }`}>
             <p 
               className="arabic-text leading-[2.2] mb-6 select-text"
@@ -155,13 +217,13 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
             
             <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
               dbContent 
-                ? (isDarkTheme ? 'bg-gray-800/50' : 'bg-white') 
-                : 'border-gray-200 bg-gray-100 opacity-40 grayscale flex items-center justify-center'
+                ? (isDarkTheme ? 'bg-black/20' : 'bg-black/5') 
+                : (isDarkTheme ? 'border-white/5 bg-black/20 opacity-40 grayscale flex items-center justify-center' : 'border-black/5 bg-black/5 opacity-40 grayscale flex items-center justify-center')
             }`} style={{ borderColor: dbContent ? accentColor : undefined }}>
               {dbContent ? (
                 <div 
                   className="whitespace-pre-wrap select-text"
-                  style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
+                  style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
                 >{dbContent}</div>
               ) : (
                 <div className="flex flex-col items-center gap-4 opacity-50 text-center" style={{ color: accentColor }}>
@@ -175,7 +237,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
       </div>
 
       <footer className={`h-24 border-t flex items-center justify-between px-8 pb-safe shrink-0 transition-colors backdrop-blur-md ${
-        isDarkTheme ? 'bg-[#191c1a]/60 border-gray-800' : 'bg-white/60 border-gray-100'
+        isDarkTheme ? 'bg-black/40 border-gray-800' : 'bg-white/40 border-gray-100'
       }`}>
         <button 
           onClick={onPrev} 
@@ -204,8 +266,8 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
           onClick={() => setShowTafseerSelector(false)}
         >
           <div 
-            className={`absolute bottom-0 left-0 right-0 p-8 rounded-t-[40px] shadow-2xl animate-in slide-in-from-bottom duration-500 ${
-              isDarkTheme ? 'bg-[#191c1a] border-t border-white/5' : 'bg-white border-t border-black/5'
+            className={`absolute bottom-0 left-0 right-0 p-8 rounded-t-[40px] shadow-2xl animate-in slide-in-from-bottom duration-500 backdrop-blur-xl ${
+              isDarkTheme ? 'bg-black/80 border-t border-white/5' : 'bg-white/80 border-t border-black/5'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -237,7 +299,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
                   className={`px-6 py-5 rounded-3xl text-right font-bold text-sm transition-all flex items-center justify-between group active:scale-[0.98] ${
                     activeTafseerFile === file.id 
                       ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
-                      : (isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-50 hover:bg-gray-100')
+                      : (isDarkTheme ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10')
                   }`}
                 >
                   <div className="flex items-center gap-4">

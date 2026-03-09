@@ -1,1 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=Noto+Naskh+Arabic:wght@400..700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+  --font-quran: "Noto Naskh Arabic", serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans;
+  }
+}
+
+.arabic-text {
+  font-family: var(--font-quran);
+}

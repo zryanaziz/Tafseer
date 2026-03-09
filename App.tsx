@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [activeTafseerFile, setActiveTafseerFile] = useState<string>(() => localStorage.getItem('app_active_tafseer_file') || TAFSEER_FILES[0].id);
   const [activeTafseer, setActiveTafseer] = useState<string>(() => localStorage.getItem('app_active_tafseer') || 'tafseer');
   const [showInSurahFontSettings, setShowInSurahFontSettings] = useState(false);
+  const [showPlaybackSettings, setShowPlaybackSettings] = useState(false);
   const [lastRead, setLastRead] = useState<LastRead | null>(() => {
     const saved = localStorage.getItem('app_last_read');
     return saved ? JSON.parse(saved) : null;
@@ -54,6 +55,16 @@ const App: React.FC = () => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('continuous');
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => Number(localStorage.getItem('app_playback_speed')) || 1);
+  const [ayahRepeatCount, setAyahRepeatCount] = useState<number>(() => Number(localStorage.getItem('app_ayah_repeat_count')) || 1);
+  const [currentAyahRepeat, setCurrentAyahRepeat] = useState<number>(0);
+  const [isSurahRepeat, setIsSurahRepeat] = useState<boolean>(() => localStorage.getItem('app_surah_repeat') === 'true');
+  const [downloadingSurahId, setDownloadingSurahId] = useState<number | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [downloadedSurahs, setDownloadedSurahs] = useState<number[]>(() => {
+    const saved = localStorage.getItem('app_downloaded_surahs');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [selectedReciterId, setSelectedReciterId] = useState<string>(() => localStorage.getItem('app_selected_reciter') || RECITERS[0].id);
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -126,6 +137,10 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('app_font_size', fontSize.toString()); }, [fontSize]);
   useEffect(() => { localStorage.setItem('app_active_tafseer', activeTafseer); }, [activeTafseer]);
   useEffect(() => { localStorage.setItem('app_selected_reciter', selectedReciterId); }, [selectedReciterId]);
+  useEffect(() => { localStorage.setItem('app_playback_speed', playbackSpeed.toString()); }, [playbackSpeed]);
+  useEffect(() => { localStorage.setItem('app_ayah_repeat_count', ayahRepeatCount.toString()); }, [ayahRepeatCount]);
+  useEffect(() => { localStorage.setItem('app_surah_repeat', isSurahRepeat.toString()); }, [isSurahRepeat]);
+  useEffect(() => { localStorage.setItem('app_downloaded_surahs', JSON.stringify(downloadedSurahs)); }, [downloadedSurahs]);
   useEffect(() => { 
     if (lastRead) localStorage.setItem('app_last_read', JSON.stringify(lastRead)); 
   }, [lastRead]);
@@ -296,11 +311,68 @@ const App: React.FC = () => {
     }
   };
 
+  const downloadSurah = async (surah: Surah) => {
+    if (downloadingSurahId) return;
+    setDownloadingSurahId(surah.id);
+    setDownloadProgress(0);
+    
+    const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
+    const cacheName = `quran-audio-${selectedReciterId}`;
+    const cache = await caches.open(cacheName);
+    
+    try {
+      const surahVerses = await fetchSurahVerses(surah.id);
+      let downloaded = 0;
+      
+      for (const v of surahVerses) {
+        const [sNum, vNum] = v.verse_key.split(':');
+        const sss = sNum.padStart(3, '0');
+        const aaa = vNum.padStart(3, '0');
+        const url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
+        
+        // Check if already in cache
+        const cachedResponse = await cache.match(url);
+        if (!cachedResponse) {
+          await cache.add(url);
+        }
+        
+        downloaded++;
+        setDownloadProgress(Math.round((downloaded / surahVerses.length) * 100));
+      }
+      
+      setDownloadedSurahs(prev => [...prev, surah.id]);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("داگرتنەکە سەرکەوتوو نەبوو. تکایە دووبارە هەوڵ بدەرەوە.");
+    } finally {
+      setDownloadingSurahId(null);
+      setDownloadProgress(0);
+    }
+  };
+
+  const deleteDownloadedSurah = async (surahId: number) => {
+    const cacheName = `quran-audio-${selectedReciterId}`;
+    const cache = await caches.open(cacheName);
+    const surahVerses = await fetchSurahVerses(surahId);
+    const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
+    
+    for (const v of surahVerses) {
+      const [sNum, vNum] = v.verse_key.split(':');
+      const sss = sNum.padStart(3, '0');
+      const aaa = vNum.padStart(3, '0');
+      const url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
+      await cache.delete(url);
+    }
+    
+    setDownloadedSurahs(prev => prev.filter(id => id !== surahId));
+  };
+
   const toggleAudio = (verseKey: string) => {
     if (playingVerseKey === verseKey) {
       audioRef.current?.pause();
       setPlayingVerseKey(null);
     } else {
+      setCurrentAyahRepeat(0);
       setPlayingVerseKey(verseKey);
     }
   };
@@ -317,8 +389,20 @@ const App: React.FC = () => {
       setPlayingVerseKey(currentKey => {
         if (!currentKey) return null;
         
+        // Handle Ayah Repeat
+        if (currentAyahRepeat < ayahRepeatCount - 1) {
+          setCurrentAyahRepeat(prev => prev + 1);
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+          }
+          return currentKey;
+        }
+
+        // Reset repeat count for next ayah
+        setCurrentAyahRepeat(0);
+
         if (playbackMode === 'repeat') {
-          // Re-trigger playback of the same verse
           if (audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(() => {});
@@ -334,13 +418,19 @@ const App: React.FC = () => {
         if (idx !== -1 && idx < verses.length - 1) {
           return verses[idx + 1].verse_key;
         }
+
+        // Handle Surah Repeat
+        if (isSurahRepeat && verses.length > 0) {
+          return verses[0].verse_key;
+        }
+
         return null;
       });
     };
 
     audio.addEventListener('ended', handleEnded);
     return () => audio.removeEventListener('ended', handleEnded);
-  }, [verses, playbackMode]);
+  }, [verses, playbackMode, ayahRepeatCount, currentAyahRepeat, isSurahRepeat]);
 
   useEffect(() => {
     if (!playingVerseKey || !audioRef.current) return;
@@ -352,22 +442,42 @@ const App: React.FC = () => {
     const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
     const url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
 
-    if (audioRef.current.src !== url && !audioRef.current.src.endsWith(url)) {
-      audioRef.current.src = url;
-      audioRef.current.play().catch(err => {
-        console.error("Playback error:", err);
-        setPlayingVerseKey(null);
-      });
-    } else if (audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
-    }
+    // Apply playback speed
+    audioRef.current.playbackRate = playbackSpeed;
+
+    const playAudio = async () => {
+      if (!audioRef.current) return;
+      
+      if (audioRef.current.src !== url && !audioRef.current.src.endsWith(url)) {
+        // Check cache first
+        const cacheName = `quran-audio-${selectedReciterId}`;
+        const cache = await caches.open(cacheName);
+        const cachedResponse = await cache.match(url);
+        
+        if (cachedResponse) {
+          const blob = await cachedResponse.blob();
+          audioRef.current.src = URL.createObjectURL(blob);
+        } else {
+          audioRef.current.src = url;
+        }
+        
+        audioRef.current.play().catch(err => {
+          console.error("Playback error:", err);
+          setPlayingVerseKey(null);
+        });
+      } else if (audioRef.current.paused) {
+        audioRef.current.play().catch(() => {});
+      }
+    };
+
+    playAudio();
 
     // Scroll to the playing verse
     const element = verseRefs.current[playingVerseKey];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [playingVerseKey]);
+  }, [playingVerseKey, playbackSpeed]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -444,7 +554,7 @@ const App: React.FC = () => {
                 className={`px-4 py-3 rounded-2xl text-right font-bold text-xs transition-all flex items-center justify-between ${
                   activeTafseerFile === file.id 
                     ? 'bg-emerald-600 text-white shadow-lg' 
-                    : (isDark(theme) ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200')
+                    : (isDark(theme) ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10')
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -460,7 +570,7 @@ const App: React.FC = () => {
           <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
             <LayoutIcon size={16} /> شێوازی پیشاندان
           </h4>
-          <div className={`flex p-1 rounded-2xl ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40' : 'bg-gray-100'}`}>
+          <div className={`flex p-1 rounded-2xl ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40' : 'bg-black/5'}`}>
             {[
               { id: 'quran', label: 'قورئان', icon: <AlignRight size={14} /> },
               { id: 'both', label: 'هەردووکی', icon: <LayoutIcon size={14} /> },
@@ -505,7 +615,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="px-2 flex items-center gap-4">
-            <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-gray-100'}`}>-</button>
+            <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-black/5'}`}>-</button>
             <input 
               type="range" 
               min="0.5" 
@@ -516,7 +626,7 @@ const App: React.FC = () => {
               className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: accentColor }}
             />
-            <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-gray-100'}`}>+</button>
+            <button onClick={() => setFontSize(prev => Math.min(7.2, prev + 0.1))} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold active:scale-90 transition-all ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-white/10' : 'bg-black/5'}`}>+</button>
           </div>
         </div>
       </div>
@@ -645,10 +755,14 @@ const App: React.FC = () => {
       hideHeader={screen === AppScreen.SURAH_DETAIL}
     >
       {loading && (
-        <div className="fixed inset-0 bg-white/60 z-[60] flex items-center justify-center backdrop-blur-md">
-          <div className="bg-white p-8 rounded-[40px] shadow-2xl flex flex-col items-center gap-4">
-            <Loader2 className="animate-spin text-emerald-700" size={40} />
-            <span className="font-bold text-emerald-900 text-sm">کەمێکی تر...</span>
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-md ${
+          theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/60' : 'bg-white/60'
+        }`}>
+          <div className={`p-8 rounded-[40px] shadow-2xl flex flex-col items-center gap-4 ${
+            theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40 border border-gray-800' : 'bg-white/40 border border-gray-100'
+          }`}>
+            <Loader2 className="animate-spin" size={40} style={{ color: accentColor }} />
+            <span className="font-bold text-sm" style={{ color: accentColor }}>کەمێکی تر...</span>
           </div>
         </div>
       )}
@@ -743,7 +857,7 @@ const App: React.FC = () => {
           <div className="page-enter pb-safe relative">
             <div 
               className={`sticky top-0 z-20 flex flex-col border-b shadow-md transition-all duration-500 pt-safe backdrop-blur-md ${
-                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#191c1a]/80 border-gray-800' : 'bg-white/80 border-gray-100'
+                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40 border-gray-800' : 'bg-white/40 border-gray-100'
               } ${isHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}
             >
               <div className="p-3 flex gap-2 items-center justify-center w-full overflow-x-auto no-scrollbar">
@@ -837,6 +951,19 @@ const App: React.FC = () => {
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><User size={14} /></div>
                 </div>
 
+              {/* Playback Settings Toggle */}
+              <button 
+                onClick={() => setShowPlaybackSettings(!showPlaybackSettings)}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                  showPlaybackSettings 
+                    ? 'bg-emerald-600 text-white shadow-lg' 
+                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
+                }`}
+                title="ڕێکخستنی دەنگ"
+              >
+                <Volume2 size={20} />
+              </button>
+
               {/* View Mode Cycle Button */}
               <button 
                 onClick={() => setViewMode(prev => {
@@ -872,6 +999,89 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            {/* Playback Settings Panel */}
+            {showPlaybackSettings && (
+              <div className={`p-6 border-t animate-in slide-in-from-top duration-300 ${
+                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/60 border-gray-800' : 'bg-white/60 border-gray-100'
+              }`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Playback Speed */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between opacity-60">
+                      <span className="text-xs font-bold">خێرایی خوێندنەوە</span>
+                      <input 
+                        type="number" 
+                        min="0.1" 
+                        max="5.0" 
+                        step="0.1" 
+                        value={playbackSpeed} 
+                        onChange={(e) => setPlaybackSpeed(Math.min(5, Math.max(0.1, Number(e.target.value))))}
+                        className="w-12 bg-transparent text-right text-xs font-mono focus:outline-none border-b border-emerald-500/30"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setPlaybackSpeed(prev => Math.max(0.1, Number((prev - 0.1).toFixed(1))))} className="p-2 rounded-xl bg-black/5"><Minus size={16} /></button>
+                      <input 
+                        type="range" min="0.1" max="5" step="0.1" 
+                        value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                        className="flex-1 accent-emerald-600"
+                      />
+                      <button onClick={() => setPlaybackSpeed(prev => Math.min(5, Number((prev + 0.1).toFixed(1))))} className="p-2 rounded-xl bg-black/5"><Plus size={16} /></button>
+                    </div>
+                  </div>
+
+                  {/* Ayah Repeat */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between opacity-60">
+                      <span className="text-xs font-bold">دووبارەکردنەوەی ئایەت</span>
+                      <span className="text-xs font-mono">{ayahRepeatCount} جار</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setAyahRepeatCount(prev => Math.max(1, prev - 1))} className="p-2 rounded-xl bg-black/5"><Minus size={16} /></button>
+                      <input 
+                        type="range" min="1" max="10" step="1" 
+                        value={ayahRepeatCount} onChange={(e) => setAyahRepeatCount(Number(e.target.value))}
+                        className="flex-1 accent-emerald-600"
+                      />
+                      <button onClick={() => setAyahRepeatCount(prev => Math.min(10, prev + 1))} className="p-2 rounded-xl bg-black/5"><Plus size={16} /></button>
+                    </div>
+                  </div>
+
+                  {/* Surah Repeat & Download */}
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setIsSurahRepeat(!isSurahRepeat)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs transition-all ${
+                        isSurahRepeat ? 'bg-emerald-600 text-white' : 'bg-black/5 opacity-60'
+                      }`}
+                    >
+                      <Repeat size={16} />
+                      دووبارەکردنەوەی سوورەت
+                    </button>
+                    
+                    {selectedSurah && (
+                      <button 
+                        onClick={() => downloadedSurahs.includes(selectedSurah.id) ? deleteDownloadedSurah(selectedSurah.id) : downloadSurah(selectedSurah)}
+                        disabled={!!downloadingSurahId}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs transition-all ${
+                          downloadedSurahs.includes(selectedSurah.id) ? 'bg-red-500/10 text-red-500' : 'bg-emerald-600/10 text-emerald-600'
+                        }`}
+                      >
+                        {downloadingSurahId === selectedSurah.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : downloadedSurahs.includes(selectedSurah.id) ? (
+                          <Trash2 size={16} />
+                        ) : (
+                          <Wifi size={16} />
+                        )}
+                        {downloadingSurahId === selectedSurah.id ? `${downloadProgress}%` : downloadedSurahs.includes(selectedSurah.id) ? "سڕینەوەی دەنگ" : "داگرتنی سوورەت"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* In-Surah Font Size Control Bar */}
             {showInSurahFontSettings && (
               <div 
@@ -879,7 +1089,7 @@ const App: React.FC = () => {
                   e.stopPropagation();
                 }}
                 className={`px-4 py-4 flex items-center gap-4 animate-in slide-in-from-top duration-200 border-t backdrop-blur-sm ${
-                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40 border-gray-800' : 'bg-gray-50/60 border-gray-100'
+                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/40 border-gray-800' : 'bg-white/40 border-black/5'
               }`}>
                 <button onClick={() => setFontSize(prev => Math.max(0.5, prev - 0.1))} className="p-2 bg-emerald-100 text-emerald-900 rounded-lg"><Minus size={16} /></button>
                 <div className="flex-1 flex flex-col gap-1">
@@ -928,7 +1138,7 @@ const App: React.FC = () => {
                   key={v.id} 
                   ref={(el) => { verseRefs.current[v.verse_key] = el; }}
                   data-verse-key={v.verse_key}
-                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#191c1a] border-gray-800' : 'bg-white border-gray-100'}`}
+                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme.startsWith('#0') || theme.startsWith('#1') ? 'border-gray-800' : 'border-gray-100'}`}
                 >
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -967,13 +1177,13 @@ const App: React.FC = () => {
                   {(viewMode === 'tafseer' || viewMode === 'both') && (
                     <div className={`text-right p-6 rounded-[32px] border-r-8 transition-all animate-in fade-in duration-500 ${
                     theme.startsWith('#0') || theme.startsWith('#1') 
-                        ? 'bg-gray-800/40' 
-                        : 'bg-white shadow-sm'
+                        ? 'bg-black/20' 
+                        : 'bg-black/5'
                     }`} style={{ borderColor: accentColor }}>
                       {tafseerFullText ? (
                         <div 
                           className="leading-loose whitespace-pre-wrap select-text"
-                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, sans-serif' }}
+                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
                         >
                           {tafseerFullText}
                         </div>
@@ -994,7 +1204,7 @@ const App: React.FC = () => {
                 onClick={() => handleSurahNavigate(-1)}
                 disabled={selectedSurah?.id === 1}
                 className={`flex-1 flex items-center justify-center gap-3 py-5 rounded-[28px] font-bold text-sm transition-all active:scale-95 shadow-lg disabled:opacity-20 ${
-                  theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800' : 'bg-white'
+                  theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/20' : 'bg-white/40'
                 }`}
                 style={{ color: accentColor }}
               >
@@ -1035,6 +1245,10 @@ const App: React.FC = () => {
           availableTafseerFiles={TAFSEER_FILES}
           activeTafseerFile={activeTafseerFile}
           onSwitchTafseerFile={switchTafseerFile}
+          playbackSpeed={playbackSpeed}
+          onPlaybackSpeedChange={setPlaybackSpeed}
+          ayahRepeatCount={ayahRepeatCount}
+          onAyahRepeatCountChange={setAyahRepeatCount}
         />
       )}
 
