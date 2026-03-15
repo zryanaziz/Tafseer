@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
+import SoundTafseerMode from './components/SoundTafseerMode';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
@@ -29,6 +30,7 @@ const App: React.FC = () => {
   const [dbReady, setDbReady] = useState(false);
   const [isDefaultDb, setIsDefaultDb] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showSoundTafseer, setShowSoundTafseer] = useState(false);
   
   const [theme, setTheme] = useState<AppTheme>(() => localStorage.getItem('app_theme') || '#f0f4f2');
   const [accentColor, setAccentColor] = useState<AccentColor>(() => (localStorage.getItem('app_accent_color') as AccentColor) || AccentColor.EMERALD);
@@ -542,6 +544,15 @@ const App: React.FC = () => {
       <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 backdrop-blur-md ${
         theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
       }`}>
+        <button
+          onClick={() => setScreen(AppScreen.SOUND_TAFSEER)}
+          className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+          style={{ backgroundColor: accentColor, color: '#ffffff' }}
+        >
+          <Volume2 size={20} />
+          <span>تەفسیری دەنگی (تۆمارکردن)</span>
+        </button>
+
         <div>
           <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
             <Database size={16} /> سەرچاوەی تەفسیر
@@ -745,14 +756,15 @@ const App: React.FC = () => {
       title={
         screen === AppScreen.HOME ? "تەفسیری قورئان" : 
         screen === AppScreen.BOOKMARKS ? "نیشانەکان" :
+        screen === AppScreen.SOUND_TAFSEER ? "تەفسیری دەنگی" :
         selectedSurah?.name_arabic || ""
       }
-      showBack={screen === AppScreen.SURAH_DETAIL}
+      showBack={screen === AppScreen.SURAH_DETAIL || screen === AppScreen.SOUND_TAFSEER}
       onBack={goHome}
       theme={theme}
       accentColor={accentColor}
-      hideNav={screen === AppScreen.SURAH_DETAIL}
-      hideHeader={screen === AppScreen.SURAH_DETAIL}
+      hideNav={screen === AppScreen.SURAH_DETAIL || screen === AppScreen.SOUND_TAFSEER}
+      hideHeader={screen === AppScreen.SURAH_DETAIL || screen === AppScreen.SOUND_TAFSEER}
     >
       {loading && (
         <div className={`fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-md ${
@@ -840,6 +852,17 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {screen === AppScreen.SOUND_TAFSEER && (
+        <SoundTafseerMode 
+          surahs={surahs}
+          onBack={() => setScreen(AppScreen.HOME)}
+          theme={theme}
+          accentColor={accentColor}
+          fontSize={fontSize}
+          activeTafseer={activeTafseer}
+        />
       )}
       
       {screen === AppScreen.SURAH_DETAIL && (
