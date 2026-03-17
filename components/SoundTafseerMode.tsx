@@ -4,8 +4,6 @@ import { ArrowRight, Mic, Square, Play, Pause, Trash2, Download, Scissors, Check
 import { Surah, Verse } from '../types';
 import { fetchSurahVerses } from '../services/quranService';
 import { getTafseerFromDB } from '../services/dbService';
-// @ts-ignore
-import * as lamejs from 'lamejs';
 
 interface SoundTafseerModeProps {
   surahs: Surah[];
@@ -270,7 +268,7 @@ const SoundTafseerMode: React.FC<SoundTafseerModeProps> = ({ surahs, onBack, the
     const channels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     // @ts-ignore
-    const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128);
+    const mp3encoder = new window.lamejs.Mp3Encoder(channels, sampleRate, 128);
     const mp3Data = [];
 
     const sampleBlockSize = 1152;
