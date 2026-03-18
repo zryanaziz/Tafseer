@@ -72,7 +72,8 @@ export enum AppScreen {
   SEARCH = 'search',
   BOOKMARKS = 'bookmarks',
   AI_CHAT = 'ai_chat',
-  SOUND_TAFSEER = 'sound_tafseer'
+  SOUND_TAFSEER = 'sound_tafseer',
+  HIFZ = 'hifz'
 }
 
 export type AppTheme = string;

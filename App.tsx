@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import SurahCard from './components/SurahCard';
 import TafseerOverlay from './components/TafseerOverlay';
 import SoundTafseerMode from './components/SoundTafseerMode';
+import HifzMode from './components/HifzMode';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
@@ -541,17 +542,27 @@ const App: React.FC = () => {
       )}
 
       {/* View Mode & Font Size Settings */}
-      <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-6 backdrop-blur-md ${
+      <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-4 backdrop-blur-md ${
         theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
       }`}>
-        <button
-          onClick={() => setScreen(AppScreen.SOUND_TAFSEER)}
-          className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-          style={{ backgroundColor: accentColor, color: '#ffffff' }}
-        >
-          <Volume2 size={20} />
-          <span>تەفسیری دەنگی (تۆمارکردن)</span>
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setScreen(AppScreen.SOUND_TAFSEER)}
+            className="w-full py-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+            style={{ backgroundColor: accentColor, color: '#ffffff' }}
+          >
+            <Volume2 size={20} />
+            <span>تەفسیری دەنگی</span>
+          </button>
+          <button
+            onClick={() => setScreen(AppScreen.HIFZ)}
+            className="w-full py-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+            style={{ backgroundColor: '#0061a4', color: '#ffffff' }}
+          >
+            <BookOpen size={20} />
+            <span>لەبەرکردن (Hifz)</span>
+          </button>
+        </div>
 
         <div>
           <h4 className="text-sm font-bold mb-4 flex items-center gap-2 opacity-60">
@@ -643,6 +654,13 @@ const App: React.FC = () => {
       </div>
 
       <div id="surah-list-start" className="flex flex-col gap-6 px-2 pt-4">
+        {/* Database Status Warning */}
+        {!dbReady && !loading && (
+          <div className="mx-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs font-bold text-center animate-in fade-in duration-500">
+            تێبینی: فایلی تەفسیر بارنەکراوە. دەتوانیت فایلەکە بە دەست بار بکەیت لە بەشی ڕێکخستنەکان.
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">لیستی سوورەتەکان</h2>
           <div className="flex gap-2">
@@ -862,6 +880,16 @@ const App: React.FC = () => {
           accentColor={accentColor}
           fontSize={fontSize}
           activeTafseer={activeTafseer}
+        />
+      )}
+
+      {screen === AppScreen.HIFZ && (
+        <HifzMode 
+          surahs={surahs}
+          onBack={() => setScreen(AppScreen.HOME)}
+          theme={theme}
+          accentColor={accentColor}
+          fontSize={fontSize}
         />
       )}
       

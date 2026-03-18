@@ -24,6 +24,15 @@ export const initSQLite = async (file: File): Promise<{success: boolean, error?:
         });
         
         const db = new SQL.Database(uints);
+        
+        // Verify database by running a simple query
+        try {
+          db.prepare("SELECT name FROM sqlite_master WHERE type='table'").free();
+        } catch (e) {
+          db.close();
+          return resolve({success: false, error: "فایلەکە تێکچووە یان فایلی SQLite نییە."});
+        }
+
         databaseInstance = db;
         resolve({success: true});
       } catch (err) {
@@ -62,12 +71,23 @@ export const loadTafseerDB = async (fileName: string): Promise<boolean> => {
       locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
     });
     
+    const db = new SQL.Database(uints);
+    
+    // Verify database by running a simple query
+    try {
+      db.prepare("SELECT name FROM sqlite_master WHERE type='table'").free();
+    } catch (e) {
+      db.close();
+      console.error(`Failed to verify DB ${fileName}: file is not a database`);
+      return false;
+    }
+
     // Close existing database if any
     if (databaseInstance) {
       databaseInstance.close();
     }
 
-    databaseInstance = new SQL.Database(uints);
+    databaseInstance = db;
     return true;
   } catch (err) {
     console.error(`Failed to load DB ${fileName}:`, err);
