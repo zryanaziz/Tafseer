@@ -29,6 +29,8 @@ const HifzMode: React.FC<HifzModeProps> = ({ surahs, onBack, theme, accentColor,
   const [showOnlyNotMemorized, setShowOnlyNotMemorized] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'page'>('list');
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [hiddenVerses, setHiddenVerses] = useState<Record<string, boolean>>({});
 
   const isDark = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
@@ -154,14 +156,29 @@ const HifzMode: React.FC<HifzModeProps> = ({ surahs, onBack, theme, accentColor,
       {/* Header */}
       <header className={`p-4 flex items-center justify-between border-b shrink-0 ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white/40 border-gray-100'}`}>
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-black/5 active:scale-90 transition-all">
+          <button onClick={() => {
+            if (selectedSurah && viewMode === 'page') {
+              setViewMode('list');
+              setCurrentPageIndex(0);
+            } else if (selectedSurah) {
+              setSelectedSurah(null);
+              setVerses([]);
+            } else {
+              onBack();
+            }
+          }} className="p-2 rounded-full hover:bg-black/5 active:scale-90 transition-all">
             <ArrowRight size={24} />
           </button>
           <div>
-            <h2 className="font-bold text-lg">لەبەرکردنی قورئان</h2>
-            <p className="text-[10px] opacity-50 uppercase tracking-widest">بەدواداچوونی لەبەرکردن و تاقیکردنەوە</p>
+            <h2 className="font-bold text-lg">{selectedSurah ? selectedSurah.name_arabic : 'لەبەرکردنی قورئان'}</h2>
+            <p className="text-[10px] opacity-50 uppercase tracking-widest">{selectedSurah ? selectedSurah.translated_name.name : 'بەدواداچوونی لەبەرکردن و تاقیکردنەوە'}</p>
           </div>
         </div>
+        {selectedSurah && (
+          <button onClick={() => setViewMode(prev => prev === 'list' ? 'page' : 'list')} className="p-2 rounded-full hover:bg-black/5 active:scale-90 transition-all">
+            {viewMode === 'list' ? <BookOpen size={24} /> : <Filter size={24} />}
+          </button>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
@@ -201,7 +218,6 @@ const HifzMode: React.FC<HifzModeProps> = ({ surahs, onBack, theme, accentColor,
             </div>
           </div>
         )}
-
         {!selectedSurah ? (
           <div className="space-y-4">
             {/* Search and Filter */}
@@ -249,7 +265,14 @@ const HifzMode: React.FC<HifzModeProps> = ({ surahs, onBack, theme, accentColor,
                 return (
                   <div 
                     key={s.id}
-                    onClick={() => handleSurahClick(s)}
+                    onClick={() => {
+                      setSelectedSurah(s);
+                      setLoading(true);
+                      fetchSurahVerses(s.id).then(data => {
+                        setVerses(data);
+                        setLoading(false);
+                      });
+                    }}
                     className={`p-4 rounded-[28px] flex flex-col gap-3 transition-all active:scale-[0.98] border shadow-sm cursor-pointer ${
                       isDark ? 'bg-[#212622]/40 border-gray-800/50' : 'bg-white/40 border-gray-100/50'
                     }`}
@@ -297,6 +320,41 @@ const HifzMode: React.FC<HifzModeProps> = ({ surahs, onBack, theme, accentColor,
                   </div>
                 );
               })}
+            </div>
+          </div>
+        ) : viewMode === 'page' ? (
+          <div className="flex-1 flex flex-col gap-6 p-4">
+            <div className="flex-1 flex flex-col items-center justify-center p-6 rounded-[32px] border shadow-sm bg-white/40 border-gray-100/50">
+              <p className="arabic-text text-center leading-[2.4] mb-6" style={{ fontSize: `${32 * fontSize}px`, color: accentColor }}>
+                {verses[currentPageIndex]?.text_uthmani}
+              </p>
+              <button 
+                onClick={() => toggleVerseMemorized(verses[currentPageIndex].verse_key)}
+                className={`px-6 py-3 rounded-full font-bold transition-all ${
+                  hifzData.memorizedVerses.includes(verses[currentPageIndex].verse_key)
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                {hifzData.memorizedVerses.includes(verses[currentPageIndex].verse_key) ? 'لەبەرکراوە' : 'لەبەرکردن'}
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentPageIndex === 0}
+                className="flex-1 py-4 rounded-2xl font-bold bg-black/5 disabled:opacity-30"
+              >
+                پێشوو
+              </button>
+              <button 
+                onClick={() => setCurrentPageIndex(prev => Math.min(verses.length - 1, prev + 1))}
+                disabled={currentPageIndex === verses.length - 1}
+                className="flex-1 py-4 rounded-2xl font-bold text-white"
+                style={{ backgroundColor: accentColor }}
+              >
+                دواتر
+              </button>
             </div>
           </div>
         ) : (

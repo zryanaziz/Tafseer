@@ -8,8 +8,9 @@ import HifzMode from './components/HifzMode';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen } from 'lucide-react';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen, Mic } from 'lucide-react';
 import { AUDIO_BASE_URL, RECITERS } from './constants';
+import { GoogleGenAI, Modality } from "@google/genai";
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 type PlaybackMode = 'continuous' | 'repeat' | 'once';
@@ -59,6 +60,59 @@ const App: React.FC = () => {
   const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('continuous');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => Number(localStorage.getItem('app_playback_speed')) || 1);
+  const [isReading, setIsReading] = useState(false);
+
+  const readTafseer = async (text: string) => {
+    if (!text) return;
+    setIsReading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        playAudio(base64Audio);
+      }
+    } catch (error) {
+      console.error("TTS error:", error);
+    } finally {
+      setIsReading(false);
+    }
+  };
+
+  const playAudio = (base64Data: string) => {
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    
+    // Assuming 24kHz, 16-bit, mono
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = audioContext.createBuffer(1, bytes.length / 2, 24000);
+    const channelData = audioBuffer.getChannelData(0);
+    
+    const int16Array = new Int16Array(bytes.buffer);
+    for (let i = 0; i < int16Array.length; i++) {
+        channelData[i] = int16Array[i] / 32768.0;
+    }
+    
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.start();
+  };
   const [ayahRepeatCount, setAyahRepeatCount] = useState<number>(() => Number(localStorage.getItem('app_ayah_repeat_count')) || 1);
   const [currentAyahRepeat, setCurrentAyahRepeat] = useState<number>(0);
   const [isSurahRepeat, setIsSurahRepeat] = useState<boolean>(() => localStorage.getItem('app_surah_repeat') === 'true');
@@ -1195,6 +1249,15 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
                       <button 
+                        onClick={() => readTafseer(tafseerFullText || "")}
+                        disabled={isReading || !tafseerFullText}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                          isReading ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        <Mic size={18} />
+                      </button>
+                      <button 
                         onClick={() => toggleAudio(v.verse_key)}
                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                           playingVerseKey === v.verse_key ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-emerald-100 text-emerald-700'
@@ -1232,12 +1295,23 @@ const App: React.FC = () => {
                         : 'bg-black/5'
                     }`} style={{ borderColor: accentColor }}>
                       {tafseerFullText ? (
-                        <div 
-                          className="leading-loose whitespace-pre-wrap select-text"
-                          style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
-                        >
-                          {tafseerFullText}
-                        </div>
+                        <>
+                          <button 
+                            onClick={() => readTafseer(tafseerFullText)}
+                            disabled={isReading}
+                            className={`mb-4 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                              isReading ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700'
+                            }`}
+                          >
+                            <Mic size={18} />
+                          </button>
+                          <div 
+                            className="leading-loose whitespace-pre-wrap select-text"
+                            style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
+                          >
+                            {tafseerFullText}
+                          </div>
+                        </>
                       ) : (
                         <div className="flex flex-col items-center gap-3 opacity-30 py-4" style={{ color: accentColor }}>
                           <Database size={24} />

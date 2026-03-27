@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown, Volume2, Minus, Plus } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown, Volume2, Minus, Plus, Mic } from 'lucide-react';
 import { Verse, AppTheme, AccentColor } from '../types';
 import { getTafseerFromDB } from '../services/dbService';
+import { GoogleGenAI, Modality } from "@google/genai";
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 
@@ -37,6 +38,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
   const [dbContent, setDbContent] = useState<string | null>(null);
   const [showTafseerSelector, setShowTafseerSelector] = useState(false);
   const [showPlaybackSettings, setShowPlaybackSettings] = useState(false);
+  const [isReading, setIsReading] = useState(false);
 
   useEffect(() => {
     const parts = verse.verse_key.split(':');
@@ -45,6 +47,58 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
     
     setDbContent(getTafseerFromDB(surahId, verseId, activeTafseer));
   }, [verse.verse_key, activeTafseer, activeTafseerFile]);
+
+  const readTafseer = async () => {
+    if (!dbContent) return;
+    setIsReading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: dbContent }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        playAudio(base64Audio);
+      }
+    } catch (error) {
+      console.error("TTS error:", error);
+    } finally {
+      setIsReading(false);
+    }
+  };
+
+  const playAudio = (base64Data: string) => {
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    
+    // Assuming 24kHz, 16-bit, mono
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = audioContext.createBuffer(1, bytes.length / 2, 24000);
+    const channelData = audioBuffer.getChannelData(0);
+    
+    const int16Array = new Int16Array(bytes.buffer);
+    for (let i = 0; i < int16Array.length; i++) {
+        channelData[i] = int16Array[i] / 32768.0;
+    }
+    
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.start();
+  };
 
   const isDarkTheme = theme.startsWith('#0') || theme.startsWith('#1') || theme.startsWith('#2');
 
@@ -68,6 +122,15 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
             <h2 className="font-bold text-lg leading-tight">ئایەتی {verse.verse_key}</h2>
           </div>
           <div className="flex items-center gap-2">
+             <button 
+               onClick={readTafseer}
+               disabled={isReading || !dbContent}
+               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                 isReading ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700'
+               }`}
+             >
+               <Mic size={18} />
+             </button>
              <button 
                onClick={() => setShowPlaybackSettings(!showPlaybackSettings)}
                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
