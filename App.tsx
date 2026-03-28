@@ -103,7 +103,7 @@ const App: React.FC = () => {
     const audioBuffer = audioContext.createBuffer(1, bytes.length / 2, 24000);
     const channelData = audioBuffer.getChannelData(0);
     
-    const int16Array = new Int16Array(bytes.buffer);
+    const int16Array = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2);
     for (let i = 0; i < int16Array.length; i++) {
         channelData[i] = int16Array[i] / 32768.0;
     }
