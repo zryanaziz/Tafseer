@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 
 /**
  * Generates AI insights for a given Quranic verse based on its text, translation, and classical tafseer.
- * Uses gemini-3-flash-preview for efficient text analysis.
+ * Uses gemini-flash-latest for efficient text analysis.
  * Now requests the response in Kurdish Sorani.
  */
 export const getAIInsights = async (verseText: string, translation: string, contextTafseer: string) => {
@@ -27,7 +27,7 @@ export const getAIInsights = async (verseText: string, translation: string, cont
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-flash-latest',
       contents: prompt,
       config: {
         temperature: 0.7,

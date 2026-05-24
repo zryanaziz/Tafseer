@@ -54,7 +54,7 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+        model: "gemini-flash-latest",
         contents: [{ parts: [{ text: dbContent }] }],
         config: {
           responseModalities: [Modality.AUDIO],

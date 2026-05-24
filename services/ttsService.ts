@@ -5,7 +5,7 @@ export const readTafseerInKurdish = async (text: string): Promise<string | null>
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-flash-latest",
       contents: [{ parts: [{ text: `بە کوردی بیخوێنەرەوە: ${text}` }] }],
       config: {
         responseModalities: [Modality.AUDIO],

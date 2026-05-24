@@ -8,9 +8,13 @@
     "start": "vite preview",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cap:sync": "cap sync android",
+    "cap:build": "npm run build && cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@google/genai": "^1.46.0",
     "@tailwindcss/vite": "^4.2.1",
     "axios": "^1.13.6",
@@ -22,6 +26,7 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

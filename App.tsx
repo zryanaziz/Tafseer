@@ -6,7 +6,7 @@ import TafseerOverlay from './components/TafseerOverlay';
 import SoundTafseerMode from './components/SoundTafseerMode';
 import HifzMode from './components/HifzMode';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
-import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers } from './services/dbService';
+import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers, loadQuranDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
 import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen, Mic } from 'lucide-react';
 import { AUDIO_BASE_URL, RECITERS } from './constants';
@@ -68,7 +68,7 @@ const App: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+        model: "gemini-flash-latest",
         contents: [{ parts: [{ text: text }] }],
         config: {
           responseModalities: [Modality.AUDIO],
@@ -136,6 +136,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
+      
+      // Load local Quran.db offline database if present
+      const quranLoaded = await loadQuranDB('quran.db');
+      console.log("Quran DB Offline Status:", quranLoaded ? "Active (Offline Quran Loaded)" : "Inactive (Using API/Cache)");
+
       const loaded = await loadTafseerDB(activeTafseerFile);
       setDbReady(loaded);
       if (loaded) {
@@ -543,8 +548,23 @@ const App: React.FC = () => {
     setLoading(true);
     const result = await initSQLite(file);
     if (result.success) {
-      setDbReady(true);
-      setAvailableTafseers(getAvailableTafseers());
+      if (result.isQuranDb) {
+        try {
+          const surahData = await fetchSurahs();
+          setSurahs(surahData);
+          alert("داتابەیسی دەرەکی قورئان (quran.db) بە سەرکەوتووی بارکرا و چالاککرا!");
+        } catch (err) {
+          console.error("Error refreshing surahs offline list:", err);
+        }
+      } else {
+        setDbReady(true);
+        const tafseers = getAvailableTafseers();
+        setAvailableTafseers(tafseers);
+        if (tafseers.length > 0) {
+          setActiveTafseer(tafseers[0]);
+        }
+        alert("داتابەیسی تەفسیر بە سەرکەوتووی بارکرا و چالاککرا!");
+      }
     } else {
       alert(result.error || "هەڵەیەک ڕوویدا لە کاتی بارکردنی فایلەکە.");
     }
