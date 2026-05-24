@@ -23,7 +23,7 @@ const Layout: React.FC<LayoutProps> = ({
   title,
   showBack,
   onBack,
-  theme = '#f0f4f2',
+  theme = '#fdf3e7',
   accentColor = AccentColor.EMERALD,
   hideNav = false,
   hideHeader = false

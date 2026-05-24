@@ -34,7 +34,7 @@ const App: React.FC = () => {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showSoundTafseer, setShowSoundTafseer] = useState(false);
   
-  const [theme, setTheme] = useState<AppTheme>(() => localStorage.getItem('app_theme') || '#f0f4f2');
+  const [theme, setTheme] = useState<AppTheme>(() => localStorage.getItem('app_theme') || '#fdf3e7');
   const [accentColor, setAccentColor] = useState<AccentColor>(() => (localStorage.getItem('app_accent_color') as AccentColor) || AccentColor.EMERALD);
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('app_view_mode') as ViewMode) || 'both');
   const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem('app_font_size')) || 1);
@@ -757,11 +757,11 @@ const App: React.FC = () => {
             </h4>
             <div className="flex flex-wrap gap-3">
               {[
+                { id: '#fdf3e7', color: '#fdf3e7' },
                 { id: '#f0f4f2', color: '#f0f4f2' },
                 { id: '#e1f5fe', color: '#e1f5fe' },
                 { id: '#1c1b1f', color: '#1c1b1f' },
                 { id: '#fff1f2', color: '#fff1f2' },
-                { id: '#fdf3e7', color: '#fdf3e7' },
                 { id: '#0a0c0b', color: '#0a0c0b' },
                 { id: '#dcc1a7', color: '#dcc1a7' },
               ].map((t) => (
