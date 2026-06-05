@@ -82,16 +82,17 @@ const App: React.FC = () => {
 
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
-        playAudio(base64Audio);
+        playAudioTTS(base64Audio, () => setIsReading(false));
+      } else {
+        setIsReading(false);
       }
     } catch (error) {
       console.error("TTS error:", error);
-    } finally {
       setIsReading(false);
     }
   };
 
-  const playAudio = (base64Data: string) => {
+  const playAudioTTS = (base64Data: string, onEnded?: () => void) => {
     const binary = atob(base64Data);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
@@ -110,7 +111,12 @@ const App: React.FC = () => {
     
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
+    // Apply user's chosen playback speed to the AI reading
+    source.playbackRate.value = playbackSpeed;
     source.connect(audioContext.destination);
+    if (onEnded) {
+      source.onended = onEnded;
+    }
     source.start();
   };
   const [ayahRepeatCount, setAyahRepeatCount] = useState<number>(() => Number(localStorage.getItem('app_ayah_repeat_count')) || 1);
@@ -136,39 +142,63 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      
-      // Load local Quran.db offline database if present
-      const quranLoaded = await loadQuranDB('quran.db');
-      console.log("Quran DB Offline Status:", quranLoaded ? "Active (Offline Quran Loaded)" : "Inactive (Using API/Cache)");
+      try {
+        // Load local Quran.db offline database if present
+        const quranLoaded = await loadQuranDB('quran.db').catch(err => {
+          console.error("Failed to load offline quran db auto load:", err);
+          return false;
+        });
+        console.log("Quran DB Offline Status:", quranLoaded ? "Active (Offline Quran Loaded)" : "Inactive (Using API/Cache)");
 
-      const loaded = await loadTafseerDB(activeTafseerFile);
-      setDbReady(loaded);
-      if (loaded) {
-        setAvailableTafseers(getAvailableTafseers());
+        const loaded = await loadTafseerDB(activeTafseerFile).catch(err => {
+          console.error("Failed to load offline tafseer db auto load:", err);
+          return false;
+        });
+        setDbReady(loaded);
+        if (loaded) {
+          const tables = getAvailableTafseers();
+          setAvailableTafseers(tables);
+          // If the cached activeTafseer table doesn't exist in the new file, reset to first table
+          if (tables.length > 0 && !tables.includes(activeTafseer)) {
+            setActiveTafseer(tables[0]);
+          }
+        }
+        
+        const data = await fetchSurahs().catch(err => {
+          console.error("Failed to fetch surahs:", err);
+          return [];
+        });
+        setSurahs(data);
+      } catch (err) {
+        console.error("General app initialization error:", err);
+      } finally {
+        setLoading(false);
       }
-      
-      const data = await fetchSurahs();
-      setSurahs(data);
-      setLoading(false);
     };
     init();
   }, []);
 
   const switchTafseerFile = async (fileName: string) => {
     setLoading(true);
-    const loaded = await loadTafseerDB(fileName);
-    if (loaded) {
-      setActiveTafseerFile(fileName);
-      localStorage.setItem('app_active_tafseer_file', fileName);
-      const tables = getAvailableTafseers();
-      setAvailableTafseers(tables);
-      if (tables.length > 0) {
-        setActiveTafseer(tables[0]);
+    try {
+      const loaded = await loadTafseerDB(fileName);
+      if (loaded) {
+        setActiveTafseerFile(fileName);
+        localStorage.setItem('app_active_tafseer_file', fileName);
+        const tables = getAvailableTafseers();
+        setAvailableTafseers(tables);
+        if (tables.length > 0) {
+          setActiveTafseer(tables[0]);
+        }
+      } else {
+        alert(`ناتوانرێت فایلی ${fileName} بخوێندرێتەوە. دڵنیابە لەوەی فایلەکە لە فۆڵدەری public بوونی هەیە.`);
       }
-    } else {
-      alert(`ناتوانرێت فایلی ${fileName} بخوێندرێتەوە. دڵنیابە لەوەی فایلەکە لە فۆڵدەری public بوونی هەیە.`);
+    } catch (err) {
+      console.error("Switching Tafseer file failed:", err);
+      alert("هەڵەیەکی چاوەڕواننەکراو ڕوویدا لە کاتی گۆڕینی یان بارکردنی فایلەکە.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Navigation history management for back button
@@ -504,13 +534,12 @@ const App: React.FC = () => {
     const reciter = RECITERS.find(r => r.id === selectedReciterId) || RECITERS[0];
     const url = `${AUDIO_BASE_URL}${reciter.path}${sss}${aaa}.mp3`;
 
-    // Apply playback speed
-    audioRef.current.playbackRate = playbackSpeed;
-
     const playAudio = async () => {
       if (!audioRef.current) return;
       
-      if (audioRef.current.src !== url && !audioRef.current.src.endsWith(url)) {
+      const isNewSrc = audioRef.current.src !== url && !audioRef.current.src.endsWith(url);
+      
+      if (isNewSrc) {
         // Check cache first
         const cacheName = `quran-audio-${selectedReciterId}`;
         const cache = await caches.open(cacheName);
@@ -522,13 +551,18 @@ const App: React.FC = () => {
         } else {
           audioRef.current.src = url;
         }
-        
-        audioRef.current.play().catch(err => {
-          console.error("Playback error:", err);
-          setPlayingVerseKey(null);
-        });
-      } else if (audioRef.current.paused) {
-        audioRef.current.play().catch(() => {});
+      }
+
+      // Always re-apply playback speed before playing
+      audioRef.current.playbackRate = playbackSpeed;
+      
+      try {
+        await audioRef.current.play();
+        // Re-confirm playback rate after play starts (some browsers reset it)
+        audioRef.current.playbackRate = playbackSpeed;
+      } catch (err) {
+        console.error("Playback error:", err);
+        setPlayingVerseKey(null);
       }
     };
 
@@ -539,36 +573,42 @@ const App: React.FC = () => {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [playingVerseKey, playbackSpeed]);
+  }, [playingVerseKey, playbackSpeed, selectedReciterId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLoading(true);
-    const result = await initSQLite(file);
-    if (result.success) {
-      if (result.isQuranDb) {
-        try {
-          const surahData = await fetchSurahs();
-          setSurahs(surahData);
-          alert("داتابەیسی دەرەکی قورئان (quran.db) بە سەرکەوتووی بارکرا و چالاککرا!");
-        } catch (err) {
-          console.error("Error refreshing surahs offline list:", err);
+    try {
+      const result = await initSQLite(file);
+      if (result.success) {
+        if (result.isQuranDb) {
+          try {
+            const surahData = await fetchSurahs();
+            setSurahs(surahData);
+            alert("داتابەیسی دەرەکی قورئان (quran.db) بە سەرکەوتووی بارکرا و چالاککرا!");
+          } catch (err) {
+            console.error("Error refreshing surahs offline list:", err);
+          }
+        } else {
+          setDbReady(true);
+          const tafseers = getAvailableTafseers();
+          setAvailableTafseers(tafseers);
+          if (tafseers.length > 0) {
+            setActiveTafseer(tafseers[0]);
+          }
+          alert("داتابەیسی تەفسیر بە سەرکەوتووی بارکرا و چالاککرا!");
         }
       } else {
-        setDbReady(true);
-        const tafseers = getAvailableTafseers();
-        setAvailableTafseers(tafseers);
-        if (tafseers.length > 0) {
-          setActiveTafseer(tafseers[0]);
-        }
-        alert("داتابەیسی تەفسیر بە سەرکەوتووی بارکرا و چالاککرا!");
+        alert(result.error || "هەڵەیەک ڕوویدا لە کاتی بارکردنی فایلەکە.");
       }
-    } else {
-      alert(result.error || "هەڵەیەک ڕوویدا لە کاتی بارکردنی فایلەکە.");
+    } catch (err) {
+      console.error("Manual SQLite file upload failed:", err);
+      alert("هەڵەیەک ڕوویدا لە کاتی بارکردنی داتابەیسەکە.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const renderHome = () => (

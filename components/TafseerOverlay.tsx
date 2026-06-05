@@ -68,16 +68,17 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
 
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
-        playAudio(base64Audio);
+        playAudio(base64Audio, () => setIsReading(false));
+      } else {
+        setIsReading(false);
       }
     } catch (error) {
       console.error("TTS error:", error);
-    } finally {
       setIsReading(false);
     }
   };
 
-  const playAudio = (base64Data: string) => {
+  const playAudio = (base64Data: string, onEnded?: () => void) => {
     const binary = atob(base64Data);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
@@ -96,7 +97,12 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
     
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
+    // Apply user's selected playback speed to AI reading
+    source.playbackRate.value = playbackSpeed;
     source.connect(audioContext.destination);
+    if (onEnded) {
+      source.onended = onEnded;
+    }
     source.start();
   };
 

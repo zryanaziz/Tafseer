@@ -41,8 +41,12 @@ export const fetchSurahs = async (): Promise<Surah[]> => {
     localStorage.setItem(cacheKey, JSON.stringify(data.chapters));
     return data.chapters;
   } catch (err) {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached);
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (parseErr) {
+      console.error("Failed to parse cached surahs:", parseErr);
+    }
     // Ultimate offline fallback when API fails and no cache exists: Return full 114 Surahs!
     return STATIC_SURAHS;
   }
@@ -69,8 +73,12 @@ export const fetchSurahVerses = async (surahId: number, page: number = 1): Promi
     localStorage.setItem(cacheKey, JSON.stringify(data.verses));
     return data.verses;
   } catch (err) {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached);
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (parseErr) {
+      console.error("Failed to parse cached verses:", parseErr);
+    }
     throw err;
   }
 };

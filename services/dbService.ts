@@ -243,14 +243,30 @@ export const getAvailableTafseers = (): string[] => {
  * Queries the database using surah_id and verse_id from a specific table
  */
 export const getTafseerFromDB = (surahId: number, verseId: number, tableName: string = 'tafseer'): string | null => {
-  if (!databaseInstance) return null;
+  if (!databaseInstance) {
+    console.warn("getTafseerFromDB called but databaseInstance is null");
+    return null;
+  }
+  
+  // Basic validation for tableName to prevent SQL injection if tableName comes from user input
+  if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+    console.error("Invalid table name:", tableName);
+    return null;
+  }
+
   try {
     const stmt = databaseInstance.prepare(`SELECT text FROM ${tableName} WHERE surah_id = :sid AND verse_id = :vid LIMIT 1`);
     const result = stmt.getAsObject({ ":sid": surahId, ":vid": verseId });
     stmt.free();
-    return result.text || null;
+    
+    if (result && result.text) {
+      return result.text;
+    }
+    
+    console.info(`No tafseer found for Surah ${surahId}, Verse ${verseId} in table ${tableName}`);
+    return null;
   } catch (err) {
-    console.error("Query Error:", err);
+    console.error(`Query Error (Table: ${tableName}, S:${surahId}, V:${verseId}):`, err);
     return null;
   }
 };
