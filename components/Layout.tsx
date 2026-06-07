@@ -44,24 +44,16 @@ const Layout: React.FC<LayoutProps> = ({
       {!hideHeader && (
         <header className={`${getHeaderStyle()} pt-safe px-4 py-3 flex items-center justify-between z-20 shrink-0`}>
           <div className="flex items-center gap-3">
-            {showBack ? (
+            {showBack && (
               <button onClick={onBack} className="p-2 rounded-full active:bg-black/10 transition-colors">
                 <ArrowRight size={24} />
-              </button>
-            ) : (
-              <button className="p-2 rounded-full active:bg-black/10 transition-colors">
-                <Menu size={24} />
               </button>
             )}
           </div>
           <h1 className="text-xl font-medium tracking-tight truncate flex-1 text-center">
             {activeScreen === AppScreen.SURAH_DETAIL ? "خوێندنەوە" : title}
           </h1>
-          <div className="flex items-center gap-1">
-            <button onClick={() => onNavigate(AppScreen.SEARCH)} className="p-2 rounded-full active:bg-black/10 transition-colors">
-              <Search size={24} />
-            </button>
-          </div>
+          <div className="w-10"></div> {/* Spacer for symmetry */}
         </header>
       )}
 

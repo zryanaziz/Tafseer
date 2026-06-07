@@ -1,6 +1,6 @@
 {
   "name": "Remix: Tafseer AI",
   "description": "A high-performance Quranic Tafseer application",
-  "requestFramePermissions": ["microphone"],
+  "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -10,7 +10,7 @@ import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers, load
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
 import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen, Mic } from 'lucide-react';
 import { AUDIO_BASE_URL, RECITERS } from './constants';
-import { GoogleGenAI, Modality } from "@google/genai";
+// AI imports removed for offline mode
 
 type ViewMode = 'quran' | 'tafseer' | 'both';
 type PlaybackMode = 'continuous' | 'repeat' | 'once';
@@ -62,62 +62,13 @@ const App: React.FC = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => Number(localStorage.getItem('app_playback_speed')) || 1);
   const [isReading, setIsReading] = useState(false);
 
+  // AI TTS is disabled in strict offline mode
   const readTafseer = async (text: string) => {
-    if (!text) return;
-    setIsReading(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [{ parts: [{ text: text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        playAudioTTS(base64Audio, () => setIsReading(false));
-      } else {
-        setIsReading(false);
-      }
-    } catch (error) {
-      console.error("TTS error:", error);
-      setIsReading(false);
-    }
+    console.info("AI Reading is disabled in offline mode.");
   };
 
   const playAudioTTS = (base64Data: string, onEnded?: () => void) => {
-    const binary = atob(base64Data);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    
-    // Assuming 24kHz, 16-bit, mono
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const audioBuffer = audioContext.createBuffer(1, bytes.length / 2, 24000);
-    const channelData = audioBuffer.getChannelData(0);
-    
-    const int16Array = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2);
-    for (let i = 0; i < int16Array.length; i++) {
-        channelData[i] = int16Array[i] / 32768.0;
-    }
-    
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    // Apply user's chosen playback speed to the AI reading
-    source.playbackRate.value = playbackSpeed;
-    source.connect(audioContext.destination);
-    if (onEnded) {
-      source.onended = onEnded;
-    }
-    source.start();
+    // Disabled
   };
   const [ayahRepeatCount, setAyahRepeatCount] = useState<number>(() => Number(localStorage.getItem('app_ayah_repeat_count')) || 1);
   const [currentAyahRepeat, setCurrentAyahRepeat] = useState<number>(0);
@@ -659,15 +610,7 @@ const App: React.FC = () => {
       <div className={`p-6 rounded-[32px] shadow-lg transition-all space-y-4 backdrop-blur-md ${
         theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-[#212622]/40 border border-gray-800/50' : 'bg-white/40 border border-gray-100/50'
       }`}>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setScreen(AppScreen.SOUND_TAFSEER)}
-            className="w-full py-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-            style={{ backgroundColor: accentColor, color: '#ffffff' }}
-          >
-            <Volume2 size={20} />
-            <span>تەفسیری دەنگی</span>
-          </button>
+        <div className="grid grid-cols-1 gap-3">
           <button
             onClick={() => setScreen(AppScreen.HIFZ)}
             className="w-full py-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-[0.98]"
@@ -1309,15 +1252,6 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
                       <button 
-                        onClick={() => readTafseer(tafseerFullText || "")}
-                        disabled={isReading || !tafseerFullText}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                          isReading ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
-                        <Mic size={18} />
-                      </button>
-                      <button 
                         onClick={() => toggleAudio(v.verse_key)}
                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                           playingVerseKey === v.verse_key ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-emerald-100 text-emerald-700'
@@ -1356,15 +1290,6 @@ const App: React.FC = () => {
                     }`} style={{ borderColor: accentColor }}>
                       {tafseerFullText ? (
                         <>
-                          <button 
-                            onClick={() => readTafseer(tafseerFullText)}
-                            disabled={isReading}
-                            className={`mb-4 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                              isReading ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-700'
-                            }`}
-                          >
-                            <Mic size={18} />
-                          </button>
                           <div 
                             className="leading-loose whitespace-pre-wrap select-text"
                             style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}

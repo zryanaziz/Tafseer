@@ -16,7 +16,7 @@ const handleResponse = async (response: Response) => {
 };
 
 export const fetchSurahs = async (): Promise<Surah[]> => {
-  // If Quran DB is loaded offline, build list from SQLite!
+  // Always prioritize SQLite if loaded
   if (isQuranDBLoaded()) {
     const availableIds = getAvailableSurahIds();
     if (availableIds && availableIds.length > 0) {
@@ -54,17 +54,16 @@ export const fetchSurahs = async (): Promise<Surah[]> => {
 
 
 export const fetchSurahVerses = async (surahId: number, page: number = 1): Promise<Verse[]> => {
-  const cacheKey = `quran_verses_cache_${surahId}_${page}`;
-  
-  // Try querying from the local SQLite quran.db first if loaded!
+  // Always prioritize SQLite if loaded
   if (isQuranDBLoaded()) {
     const localVerses = getQuranVersesFromDB(surahId);
     if (localVerses && localVerses.length > 0) {
-      console.log(`Loaded ${localVerses.length} verses offline from quran.db`);
       return localVerses;
     }
   }
 
+  const cacheKey = `quran_verses_cache_${surahId}_${page}`;
+  
   try {
     const response = await fetch(
       `${QURAN_API_BASE}/verses/by_chapter/${surahId}?language=en&words=false&translations=${TRANSLATION_ID}&fields=text_uthmani&per_page=300&page=${page}`
@@ -90,11 +89,10 @@ export const fetchTafseer = async (verseKey: string, tafseerId: number): Promise
 };
 
 export const searchVerses = async (query: string): Promise<Verse[]> => {
+  // Always prioritize SQLite if loaded
   if (isQuranDBLoaded()) {
     const results = searchQuranDB(query);
-    if (results) {
-      return results;
-    }
+    if (results) return results;
   }
 
   try {
@@ -110,11 +108,7 @@ export const searchVerses = async (query: string): Promise<Verse[]> => {
       translations: r.translations ? [{ text: r.translations[0].text, resource_name: 'Search' }] : []
     }));
   } catch (err) {
-    console.error("Online search failed, fallback to offline DB search:", err);
-    if (isQuranDBLoaded()) {
-      const results = searchQuranDB(query);
-      if (results) return results;
-    }
+    console.error("Online search failed:", err);
     return [];
   }
 };
