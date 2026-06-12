@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown, Volume2, Minus, Plus, Mic } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lock, Database, Layout as LayoutIcon, AlignRight, BookOpen, Play, Pause, Bookmark, CheckCircle2, ChevronDown, Volume2, Minus, Plus } from 'lucide-react';
 import { Verse, AppTheme, AccentColor } from '../types';
 import { getTafseerFromDB } from '../services/dbService';
 // import { GoogleGenAI, Modality } from "@google/genai"; // Disabled for offline-only mode
@@ -196,19 +196,20 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
       </header>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-28">
+      <div className="flex-1 overflow-y-auto p-1 space-y-1 pb-28">
         {/* Quran Section */}
         {(viewMode === 'quran' || viewMode === 'both') && (
-          <div className={`p-8 rounded-[40px] border shadow-sm text-right transition-all animate-in fade-in duration-500 ${
+          <div className={`p-2 rounded-[20px] border shadow-sm text-right transition-all animate-in fade-in duration-500 ${
             isDarkTheme ? 'bg-black/20 border-gray-800' : 'bg-black/5 border-black/5'
           }`}>
             <p 
-              className="arabic-text leading-[2.2] mb-6 select-text"
+              className="arabic-text leading-[1.6] mb-1 select-text cursor-pointer"
               style={{ fontSize: `${40 * fontSize}px`, color: accentColor }}
+              onDoubleClick={onToggleAudio}
             >
               {verse.text_uthmani}
             </p>
-            <div className="h-px w-full bg-current opacity-10 mb-6"></div>
+            <div className="h-px w-full bg-current opacity-10 mb-1"></div>
             <p 
               className="opacity-80 leading-relaxed font-medium"
               style={{ fontSize: `${14 * fontSize}px`, color: accentColor }}
@@ -226,14 +227,15 @@ const TafseerOverlay: React.FC<TafseerOverlayProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-[0.2em]">ناوەڕۆکی فایلی SQLite</span>
             </div>
             
-            <div className={`p-8 rounded-[40px] min-h-[180px] text-right leading-relaxed shadow-inner border-t-4 transition-all ${
+            <div className={`p-2 rounded-[20px] min-h-[100px] text-right leading-relaxed shadow-inner border-t-2 transition-all ${
               dbContent 
                 ? (isDarkTheme ? 'bg-black/20' : 'bg-black/5') 
                 : (isDarkTheme ? 'border-white/5 bg-black/20 opacity-40 grayscale flex items-center justify-center' : 'border-black/5 bg-black/5 opacity-40 grayscale flex items-center justify-center')
             }`} style={{ borderColor: dbContent ? accentColor : undefined }}>
               {dbContent ? (
                 <div 
-                  className="whitespace-pre-wrap select-text"
+                  className="whitespace-pre-wrap select-text cursor-pointer"
+                  onDoubleClick={onToggleAudio}
                   style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
                 >{dbContent}</div>
               ) : (

@@ -8,7 +8,7 @@ import HifzMode from './components/HifzMode';
 import { fetchSurahs, fetchSurahVerses } from './services/quranService';
 import { initSQLite, loadTafseerDB, getTafseerFromDB, getAvailableTafseers, loadQuranDB } from './services/dbService';
 import { Surah, Verse, AppScreen, AppTheme, LastRead, AccentColor, Bookmark } from './types';
-import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen, Mic } from 'lucide-react';
+import { Database, Loader2, FileBox, CheckCircle2, Layout as LayoutIcon, AlignRight, BookOpen, ChevronDown, Hash, ArrowRight, ArrowLeft, Type, Clock, Plus, Minus, Palette, Play, Pause, Volume2, Repeat, Repeat1, Wifi, User, Bookmark as BookmarkIcon, Trash2, FolderOpen } from 'lucide-react';
 import { AUDIO_BASE_URL, RECITERS } from './constants';
 // AI imports removed for offline mode
 
@@ -1023,172 +1023,7 @@ const App: React.FC = () => {
                 </select>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><Hash size={14} /></div>
               </div>
-
-              {/* Audio Playback Mode */}
-              <button 
-                onClick={() => setPlaybackMode(prev => {
-                  if (prev === 'continuous') return 'repeat';
-                  if (prev === 'repeat') return 'once';
-                  return 'continuous';
-                })}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  playbackMode !== 'once' 
-                    ? 'bg-emerald-600 text-white shadow-lg' 
-                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
-                }`}
-                title={playbackMode === 'continuous' ? "بەردەوام" : playbackMode === 'repeat' ? "دووبارەکردنەوە" : "تەنها یەکجار"}
-              >
-                {playbackMode === 'continuous' && <Repeat size={20} />}
-                {playbackMode === 'repeat' && <Repeat1 size={20} />}
-                {playbackMode === 'once' && <Play size={20} className="opacity-40" />}
-              </button>
-
-              {/* Reciter Selector */}
-              <div className="relative flex-1 max-w-[150px]">
-                  <select 
-                    value={selectedReciterId} 
-                    onChange={(e) => setSelectedReciterId(e.target.value)}
-                    className={`w-full appearance-none px-4 py-3 rounded-2xl font-bold text-[10px] text-center focus:outline-none transition-all pr-8 ${
-                      theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
-                    }`}
-                  >
-                    {RECITERS.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"><User size={14} /></div>
-                </div>
-
-              {/* Playback Settings Toggle */}
-              <button 
-                onClick={() => setShowPlaybackSettings(!showPlaybackSettings)}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  showPlaybackSettings 
-                    ? 'bg-emerald-600 text-white shadow-lg' 
-                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
-                }`}
-                title="ڕێکخستنی دەنگ"
-              >
-                <Volume2 size={20} />
-              </button>
-
-              {/* View Mode Cycle Button */}
-              <button 
-                onClick={() => setViewMode(prev => {
-                  if (prev === 'both') return 'quran';
-                  if (prev === 'quran') return 'tafseer';
-                  return 'both';
-                })}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  viewMode !== 'both' 
-                    ? 'bg-emerald-600 text-white shadow-lg' 
-                    : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50'
-                }`}
-                title={viewMode === 'both' ? "هەردووکی" : viewMode === 'quran' ? "ئایەت" : "تەفسیر"}
-              >
-                {viewMode === 'both' && <LayoutIcon size={20} />}
-                {viewMode === 'quran' && <AlignRight size={20} />}
-                {viewMode === 'tafseer' && <BookOpen size={20} />}
-              </button>
-
-              {/* Toggler for In-Surah Font Settings */}
-              <button 
-                onClick={() => {
-                  setShowInSurahFontSettings(!showInSurahFontSettings);
-                }}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-                  showInSurahFontSettings 
-                    ? 'text-white shadow-lg' 
-                    : (theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-gray-800/60 text-emerald-400' : 'bg-emerald-50/60 text-emerald-900 border border-emerald-100/50')
-                }`}
-                style={{ backgroundColor: showInSurahFontSettings ? accentColor : undefined }}
-              >
-                <Type size={18} />
-              </button>
             </div>
-
-            {/* Playback Settings Panel */}
-            {showPlaybackSettings && (
-              <div className={`p-6 border-t animate-in slide-in-from-top duration-300 ${
-                theme.startsWith('#0') || theme.startsWith('#1') ? 'bg-black/60 border-gray-800' : 'bg-white/60 border-gray-100'
-              }`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Playback Speed */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between opacity-60">
-                      <span className="text-xs font-bold">خێرایی خوێندنەوە</span>
-                      <input 
-                        type="number" 
-                        min="0.1" 
-                        max="5.0" 
-                        step="0.1" 
-                        value={playbackSpeed} 
-                        onChange={(e) => setPlaybackSpeed(Math.min(5, Math.max(0.1, Number(e.target.value))))}
-                        className="w-12 bg-transparent text-right text-xs font-mono focus:outline-none border-b border-emerald-500/30"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => setPlaybackSpeed(prev => Math.max(0.1, Number((prev - 0.1).toFixed(1))))} className="p-2 rounded-xl bg-black/5"><Minus size={16} /></button>
-                      <input 
-                        type="range" min="0.1" max="5" step="0.1" 
-                        value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                        className="flex-1 accent-emerald-600"
-                      />
-                      <button onClick={() => setPlaybackSpeed(prev => Math.min(5, Number((prev + 0.1).toFixed(1))))} className="p-2 rounded-xl bg-black/5"><Plus size={16} /></button>
-                    </div>
-                  </div>
-
-                  {/* Ayah Repeat */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between opacity-60">
-                      <span className="text-xs font-bold">دووبارەکردنەوەی ئایەت</span>
-                      <span className="text-xs font-mono">{ayahRepeatCount} جار</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => setAyahRepeatCount(prev => Math.max(1, prev - 1))} className="p-2 rounded-xl bg-black/5"><Minus size={16} /></button>
-                      <input 
-                        type="range" min="1" max="10" step="1" 
-                        value={ayahRepeatCount} onChange={(e) => setAyahRepeatCount(Number(e.target.value))}
-                        className="flex-1 accent-emerald-600"
-                      />
-                      <button onClick={() => setAyahRepeatCount(prev => Math.min(10, prev + 1))} className="p-2 rounded-xl bg-black/5"><Plus size={16} /></button>
-                    </div>
-                  </div>
-
-                  {/* Surah Repeat & Download */}
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => setIsSurahRepeat(!isSurahRepeat)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs transition-all ${
-                        isSurahRepeat ? 'bg-emerald-600 text-white' : 'bg-black/5 opacity-60'
-                      }`}
-                    >
-                      <Repeat size={16} />
-                      دووبارەکردنەوەی سوورەت
-                    </button>
-                    
-                    {selectedSurah && (
-                      <button 
-                        onClick={() => downloadedSurahs.includes(selectedSurah.id) ? deleteDownloadedSurah(selectedSurah.id) : downloadSurah(selectedSurah)}
-                        disabled={!!downloadingSurahId}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs transition-all ${
-                          downloadedSurahs.includes(selectedSurah.id) ? 'bg-red-500/10 text-red-500' : 'bg-emerald-600/10 text-emerald-600'
-                        }`}
-                      >
-                        {downloadingSurahId === selectedSurah.id ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : downloadedSurahs.includes(selectedSurah.id) ? (
-                          <Trash2 size={16} />
-                        ) : (
-                          <Wifi size={16} />
-                        )}
-                        {downloadingSurahId === selectedSurah.id ? `${downloadProgress}%` : downloadedSurahs.includes(selectedSurah.id) ? "سڕینەوەی دەنگ" : "داگرتنی سوورەت"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* In-Surah Font Size Control Bar */}
             {showInSurahFontSettings && (
@@ -1234,7 +1069,91 @@ const App: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-col">
+          {/* Floating Settings Bar at Bottom */}
+          <div className="fixed bottom-6 left-4 right-4 z-[100] flex justify-center pointer-events-none">
+            <div className={`p-2 rounded-[32px] shadow-2xl flex items-center gap-2 backdrop-blur-xl border pointer-events-auto transition-all ${
+              isDark(theme) ? 'bg-black/60 border-gray-800' : 'bg-white/60 border-white/20'
+            }`}>
+              {/* Audio Playback Mode */}
+              <button 
+                onClick={() => setPlaybackMode(prev => {
+                  if (prev === 'continuous') return 'repeat';
+                  if (prev === 'repeat') return 'once';
+                  return 'continuous';
+                })}
+                className={`w-12 h-12 rounded-[24px] flex items-center justify-center transition-all active:scale-90 ${
+                  playbackMode !== 'once' 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-emerald-100 text-emerald-900'
+                }`}
+              >
+                {playbackMode === 'continuous' && <Repeat size={20} />}
+                {playbackMode === 'repeat' && <Repeat1 size={20} />}
+                {playbackMode === 'once' && <Play size={20} className="opacity-40" />}
+              </button>
+
+              {/* Reciter Selector */}
+              <div className="relative w-12 h-12">
+                <select 
+                  value={selectedReciterId} 
+                  onChange={(e) => setSelectedReciterId(e.target.value)}
+                  className={`w-full h-full appearance-none rounded-[24px] font-bold text-[8px] text-center focus:outline-none transition-all ${
+                    isDark(theme) ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900'
+                  }`}
+                >
+                  {RECITERS.map(r => (
+                    <option key={r.id} value={r.id}>{r.name.substring(0, 3)}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20"><User size={14} /></div>
+              </div>
+
+              {/* Playback Settings Toggle */}
+              <button 
+                onClick={() => setShowPlaybackSettings(!showPlaybackSettings)}
+                className={`w-12 h-12 rounded-[24px] flex items-center justify-center transition-all active:scale-90 ${
+                  showPlaybackSettings 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-emerald-100 text-emerald-900'
+                }`}
+              >
+                <Volume2 size={20} />
+              </button>
+
+              {/* View Mode Cycle Button */}
+              <button 
+                onClick={() => setViewMode(prev => {
+                  if (prev === 'both') return 'quran';
+                  if (prev === 'quran') return 'tafseer';
+                  return 'both';
+                })}
+                className={`w-12 h-12 rounded-[24px] flex items-center justify-center transition-all active:scale-90 ${
+                  viewMode !== 'both' 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                {viewMode === 'both' && <LayoutIcon size={20} />}
+                {viewMode === 'quran' && <AlignRight size={20} />}
+                {viewMode === 'tafseer' && <BookOpen size={20} />}
+              </button>
+
+              {/* Toggler for In-Surah Font Settings */}
+              <button 
+                onClick={() => setShowInSurahFontSettings(!showInSurahFontSettings)}
+                className={`w-12 h-12 rounded-[24px] flex items-center justify-center transition-all active:scale-90 ${
+                  showInSurahFontSettings 
+                    ? 'text-white' 
+                    : (isDark(theme) ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-900')
+                }`}
+                style={{ backgroundColor: showInSurahFontSettings ? accentColor : undefined }}
+              >
+                <Type size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col pb-32">
             {verses.map(v => {
               const parts = v.verse_key.split(':');
               const tafseerFullText = (viewMode === 'tafseer' || viewMode === 'both') 
@@ -1246,9 +1165,9 @@ const App: React.FC = () => {
                   key={v.id} 
                   ref={(el) => { verseRefs.current[v.verse_key] = el; }}
                   data-verse-key={v.verse_key}
-                  className={`p-6 border-b transition-colors scroll-mt-32 ${theme.startsWith('#0') || theme.startsWith('#1') ? 'border-gray-800' : 'border-gray-100'}`}
+                  className={`p-1 border-b transition-colors scroll-mt-32 ${theme.startsWith('#0') || theme.startsWith('#1') ? 'border-gray-800' : 'border-gray-100'}`}
                 >
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex justify-between items-center mb-0.5">
                     <div className="flex items-center gap-3">
                       <span className="px-4 py-1.5 rounded-full bg-[#cce8d9] text-[#002114] font-bold text-[10px] tracking-widest uppercase">ئایەتی {parts[1]}</span>
                       <button 
@@ -1274,28 +1193,30 @@ const App: React.FC = () => {
                   </div>
 
                   {(viewMode === 'quran' || viewMode === 'both') && (
-                    <p 
-                      className={`arabic-text text-right leading-[2.4] select-text mb-6`}
+                    <div 
+                      className={`arabic-text text-right leading-[1.6] select-text mb-0.5 cursor-pointer`}
                       style={{ fontSize: `${32 * fontSize}px`, color: accentColor }}
+                      onDoubleClick={() => toggleAudio(v.verse_key)}
                     >
                       {v.text_uthmani}
-                    </p>
+                    </div>
                   )}
 
                   {(viewMode === 'tafseer' || viewMode === 'both') && (
-                    <div className={`text-right p-6 rounded-[32px] border-r-8 transition-all animate-in fade-in duration-500 ${
+                    <div className={`text-right p-2 rounded-[20px] border-r-4 transition-all animate-in fade-in duration-500 ${
                     theme.startsWith('#0') || theme.startsWith('#1') 
                         ? 'bg-black/20' 
                         : 'bg-black/5'
                     }`} style={{ borderColor: accentColor }}>
                       {tafseerFullText ? (
                         <>
-                          <div 
-                            className="leading-loose whitespace-pre-wrap select-text"
-                            style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
-                          >
-                            {tafseerFullText}
-                          </div>
+                            <div 
+                              className="leading-loose whitespace-pre-wrap select-text"
+                              onDoubleClick={() => toggleAudio(v.verse_key)}
+                              style={{ fontSize: `${18 * fontSize}px`, color: accentColor, fontFamily: 'Calibri, Vazirmatn, sans-serif' }}
+                            >
+                              {tafseerFullText}
+                            </div>
                         </>
                       ) : (
                         <div className="flex flex-col items-center gap-3 opacity-30 py-4" style={{ color: accentColor }}>
